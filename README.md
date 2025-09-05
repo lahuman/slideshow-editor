@@ -1,69 +1,67 @@
-# React + TypeScript + Vite
+# 이미지 슬라이드쇼 에디터
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+웹 기반의 인터랙티브 슬라이드쇼 에디터입니다. 사용자는 이미지를 업로드하고, 타임라인 위에서 각 이미지 슬라이드의 순서, 길이, 트랙을 조절하여 다채로운 슬라이드쇼를 만들 수 있습니다.
 
-Currently, two official plugins are available:
+---
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## ✨ 주요 기능
 
-## Expanding the ESLint configuration
+- **이미지 관리**: 로컬 파일을 드래그 앤 드롭 또는 파일 선택으로 이미지 라이브러리에 추가합니다.
+- **다중 트랙 타임라인**: 간트 차트 스타일의 타임라인 위에서 여러 이미지를 동시에 다른 트랙에 배치할 수 있습니다.
+- **드래그 앤 드롭 인터페이스**: 타임라인 위의 슬라이드를 드래그하여 시작 시간과 트랙을 자유롭게 변경할 수 있습니다.
+- **실시간 캔버스 미리보기**: 타임라인에서 슬라이드를 선택하면 중앙 캔버스에 해당 이미지가 표시되며, 속성 변경 시 실시간으로 업데이트됩니다.
+- **다양한 속성 편집**:
+  - **위치**: 캔버스 내에서 이미지의 X, Y 위치를 조절합니다.
+  - **크기 및 회전**: 직관적인 컨트롤러로 이미지의 크기와 회전 각도를 조절합니다.
+  - **시간**: 각 슬라이드의 재생 시간(duration)을 설정합니다.
+  - **레이어 순서**: `zIndex` 값을 조절하여 슬라이드 간의 겹침 순서를 제어합니다.
+- **슬라이드 전환 효과**: 슬라이드 간에 적용될 전환 효과('페이드', '슬라이드', '줌', '플립' 또는 '없음')와 전환 시간을 설정할 수 있습니다.
+- **접이식 UI**: 좌우의 패널을 열고 닫을 수 있어, 작업 공간을 유연하게 활용할 수 있습니다.
+- **프로젝트 내보내기**: 현재 작업 내용을 JSON 파일 형식으로 내보낼 수 있습니다.
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+---
 
-```js
-export default tseslint.config([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+## 🛠️ 기술 스택
 
-      // Remove tseslint.configs.recommended and replace with this
-      ...tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      ...tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      ...tseslint.configs.stylisticTypeChecked,
+- **프레임워크**: React (Vite 사용)
+- **언어**: TypeScript
+- **상태 관리**: React Hooks (`useState`, `useRef`)
+- **드래그 앤 드롭**: 
+  - `@dnd-kit/core`: 타임라인의 2D 드래그 앤 드롭 기능 구현
+  - `react-draggable`: 캔버스 내의 이미지 위치 조절
+- **스타일링**: CSS (Flexbox, Grid)
+- **아이콘**: `react-icons`
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+---
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## 🚀 설치 및 실행 방법
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+1.  **저장소 복제**:
+    ```bash
+    git clone https://github.com/lahuman/slideshow-editor.git
+    cd slideshow-editor
+    ```
 
-export default tseslint.config([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+2.  **의존성 설치**:
+    ```bash
+    npm install
+    ```
+
+3.  **개발 서버 실행**:
+    ```bash
+    npm run dev
+    ```
+
+4.  브라우저에서 `http://localhost:5173`으로 접속합니다.
+
+---
+
+## 📖 사용 가이드
+
+1.  **이미지 추가**: 좌측 '이미지 라이브러리' 패널의 점선 영역으로 이미지 파일을 드래그하거나, 영역을 클릭하여 파일을 선택합니다. 추가된 이미지는 아래의 그리드에 표시됩니다.
+2.  **타임라인에 배치**: 라이브러리의 이미지 위에 마우스를 올리고 '+' 버튼을 클릭하면 해당 이미지가 타임라인의 가장 최적의 위치에 자동으로 추가됩니다.
+3.  **타임라인 조작**:
+    - **이동**: 타임라인의 슬라이드 썸네일(이미지) 부분을 드래그하여 시간(X축)과 트랙(Y축)을 자유롭게 이동시킬 수 있습니다. 다른 슬라이드 근처에 놓으면 자동으로 달라붙습니다(스냅 기능).
+    - **선택**: 슬라이드의 썸네일을 제외한 나머지 부분을 클릭하면 해당 슬라이드가 선택되며, 우측 '속성 편집' 패널이 활성화됩니다.
+4.  **속성 편집**: 우측 패널에서 선택된 슬라이드의 위치, 크기, 회전, 시간, 전환 효과 등을 수정합니다. 변경 사항은 중앙 캔버스에 실시간으로 반영됩니다.
+5.  **재생 및 미리보기**: 상단의 '재생' 버튼으로 현재 타임라인을 재생해 보거나, '미리보기' 버튼으로 전체 화면 모드에서 슬라이드쇼를 확인할 수 있습니다.
