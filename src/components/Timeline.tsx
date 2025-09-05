@@ -13,10 +13,10 @@ interface TimelineProps {
   timeline: Slide[];
   currentTime: number;
   onTimeChange: (time: number) => void;
-  onSlideUpdate: (slideId: number, updates: Partial<Slide>) => void;
-  onSlideRemove: (slideId: number) => void;
-  onSlideSelect: (slide: Slide) => void;
-  selectedSlide: Slide | null;
+  onSlidesUpdate: (slideIds: number[], updates: Partial<Slide>) => void;
+  onSlidesRemove: (slideIds: number[]) => void;
+  onSlideSelect: (slideId: number, meta: { shift: boolean, ctrl: boolean }) => void;
+  selectedSlideIds: number[];
   onTimelineDragEnd: (event: DragEndEvent) => void;
 }
 
@@ -28,10 +28,10 @@ const Timeline: React.FC<TimelineProps> = ({
   timeline,
   currentTime,
   onTimeChange,
-  onSlideUpdate,
-  onSlideRemove,
+  onSlidesUpdate,
+  onSlidesRemove,
   onSlideSelect,
-  selectedSlide,
+  selectedSlideIds,
   onTimelineDragEnd,
 }) => {
   const sensors = useSensors(
@@ -51,16 +51,18 @@ const Timeline: React.FC<TimelineProps> = ({
   const handleSlideDurationChange = (slideId: number, newDuration: string): void => {
     const duration = parseFloat(newDuration);
     if (!isNaN(duration)) {
-      onSlideUpdate(slideId, { duration: Math.max(0.5, duration) });
+      const clampedDuration = Math.max(1, Math.min(duration, 100));
+      // If this slide is part of a multi-selection, update all selected slides
+      const idsToUpdate = selectedSlideIds.includes(slideId) ? selectedSlideIds : [slideId];
+      onSlidesUpdate(idsToUpdate, { duration: clampedDuration });
     }
   };
 
   const handleTimelineClick = (e: React.MouseEvent<HTMLDivElement>): void => {
-    if (!e.currentTarget.classList.contains('timeline')) return;
-    const rect = e.currentTarget.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const newTime = x / PIXELS_PER_SECOND;
-    onTimeChange(Math.max(0, Math.min(newTime, totalDuration)));
+    // Deselect all if clicking on the timeline background
+    if (e.target === e.currentTarget) {
+        onSlideSelect(0, { shift: false, ctrl: true }); // A bit of a hack to deselect all
+    }
   };
 
   const renderGrid = () => {
@@ -112,10 +114,10 @@ const Timeline: React.FC<TimelineProps> = ({
               slide={slide}
               pixelsPerSecond={PIXELS_PER_SECOND}
               trackHeight={TRACK_HEIGHT}
-              selectedSlide={selectedSlide}
-              onSlideSelect={onSlideSelect}
-              onSlideRemove={onSlideRemove}
-              onSlideDurationChange={handleSlideDurationChange}
+              isSelected={selectedSlideIds.includes(slide.id)}
+              onSelect={onSlideSelect}
+              onRemove={() => onSlidesRemove([slide.id])}
+              onDurationChange={handleSlideDurationChange}
             />
           ))}
         </div>

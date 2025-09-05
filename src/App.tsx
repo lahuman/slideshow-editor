@@ -1,24 +1,35 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import ImageLibrary from './components/ImageLibrary';
 import Timeline from './components/Timeline';
 import ImageCanvas from './components/ImageCanvas';
 import ControlPanel from './components/ControlPanel';
 import PreviewModal from './components/PreviewModal';
 import { FaPlay, FaPause, FaDownload, FaEye, FaAngleDoubleLeft, FaAngleDoubleRight } from 'react-icons/fa';
-import { ImageFile, Slide, SlideshowData } from './types';
+import { ImageFile, Slide, SlideshowData, CanvasSettings } from './types';
 import { DragEndEvent } from '@dnd-kit/core';
 import './App.css';
 
 const App: React.FC = () => {
   const [images, setImages] = useState<ImageFile[]>([]);
   const [timeline, setTimeline] = useState<Slide[]>([]);
-  const [selectedSlide, setSelectedSlide] = useState<Slide | null>(null);
+  const [selectedSlideIds, setSelectedSlideIds] = useState<number[]>([]);
+  const [lastSelectedId, setLastSelectedId] = useState<number | null>(null);
   const [currentTime, setCurrentTime] = useState<number>(0);
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [showPreview, setShowPreview] = useState<boolean>(false);
   const [isLeftPanelOpen, setIsLeftPanelOpen] = useState<boolean>(true);
   const [isRightPanelOpen, setIsRightPanelOpen] = useState<boolean>(true);
+  const [canvasSettings, setCanvasSettings] = useState<CanvasSettings>({
+    width: 800,
+    height: 450,
+    backgroundColor: '#000000',
+  });
   const canvasRef = useRef<HTMLDivElement>(null);
+
+  const selectedSlides = useMemo(() => 
+    timeline.filter(slide => selectedSlideIds.includes(slide.id)),
+    [timeline, selectedSlideIds]
+  );
 
   const totalDuration = timeline.reduce((max, slide) => 
     Math.max(max, slide.startTime + slide.duration), 0
@@ -59,7 +70,6 @@ const App: React.FC = () => {
       let targetTrack = 0;
       let earliestEndTime = trackEndTimes[0] || 0;
 
-      // Find the track that finishes earliest
       for (const track in trackEndTimes) {
         if (trackEndTimes[track] < earliestEndTime) {
           earliestEndTime = trackEndTimes[track];
@@ -67,7 +77,6 @@ const App: React.FC = () => {
         }
       }
 
-      // If all existing tracks are occupied at time 0, find a new track
       if (prevTimeline.length > 0 && earliestEndTime > 0) {
         let foundEmptyTrack = false;
         for (let i = 0; i < Object.keys(trackEndTimes).length + 1; i++) {
@@ -84,7 +93,6 @@ const App: React.FC = () => {
             earliestEndTime = 0;
         }
       }
-
 
       const newSlide: Slide = {
         id: Date.now(),
@@ -104,95 +112,98 @@ const App: React.FC = () => {
     });
   };
 
-  const updateSlide = (slideId: number, updates: Partial<Slide>): void => {
+  const updateSlides = (slideIds: number[], updates: Partial<Slide>): void => {
     setTimeline(prevTimeline =>
       prevTimeline.map(slide =>
-        slide.id === slideId ? { ...slide, ...updates } : slide
+        slideIds.includes(slide.id) ? { ...slide, ...updates } : slide
       )
     );
-    
-    // 선택된 슬라이드도 업데이트
-    if (selectedSlide?.id === slideId) {
-      setSelectedSlide(prevSelected =>
-        prevSelected ? { ...prevSelected, ...updates } : null
-      );
-    }
   };
 
-  const removeSlide = (slideId: number): void => {
-    setTimeline(prevTimeline => {
-      const newTimeline = prevTimeline.filter(slide => slide.id !== slideId);
-      
-      let accumulatedTime = 0;
-      const updatedTimeline = newTimeline.map(slide => {
-        const newSlide = { ...slide, startTime: accumulatedTime };
-        accumulatedTime += slide.duration;
-        return newSlide;
-      });
+  const updateCanvasSettings = (updates: Partial<CanvasSettings>): void => {
+    setCanvasSettings(prevSettings => ({ ...prevSettings, ...updates }));
+  };
 
-      return updatedTimeline;
-    });
+  const removeSlides = (slideIds: number[]): void => {
+    setTimeline(prevTimeline => prevTimeline.filter(slide => !slideIds.includes(slide.id)));
+    setSelectedSlideIds(prevIds => prevIds.filter(id => !slideIds.includes(id)));
+  };
 
-    if (selectedSlide?.id === slideId) {
-      setSelectedSlide(null);
+  const handleSlideSelect = (clickedId: number, { shift, ctrl }: { shift: boolean, ctrl: boolean }): void => {
+    const sortedTimeline = [...timeline].sort((a, b) => a.startTime - b.startTime);
+
+    if (shift && lastSelectedId) {
+      const lastIndex = sortedTimeline.findIndex(s => s.id === lastSelectedId);
+      const currentIndex = sortedTimeline.findIndex(s => s.id === clickedId);
+      const start = Math.min(lastIndex, currentIndex);
+      const end = Math.max(lastIndex, currentIndex);
+      const inRangeIds = sortedTimeline.slice(start, end + 1).map(s => s.id);
+      setSelectedSlideIds(inRangeIds);
+    } else if (ctrl) {
+      setSelectedSlideIds(prev => 
+        prev.includes(clickedId) ? prev.filter(id => id !== clickedId) : [...prev, clickedId]
+      );
+      setLastSelectedId(clickedId);
+    } else {
+      setSelectedSlideIds([clickedId]);
+      setLastSelectedId(clickedId);
     }
   };
 
   const handleTimelineDragEnd = (event: DragEndEvent) => {
     const { active, delta } = event;
-    const slideId = active.id;
+    const draggedId = active.id as number;
 
-    const trackHeight = 60; // from Timeline.tsx
-    const pixelsPerSecond = 60; // from Timeline.tsx
-    const snapThreshold = 10 / pixelsPerSecond; // 10 pixels tolerance
+    // Determine which slides to move.
+    const wasSelected = selectedSlideIds.includes(draggedId);
+    const idsToMove = wasSelected ? selectedSlideIds : [draggedId];
+
+    // If the dragged slide was not part of the selection, update the selection state for the UI.
+    if (!wasSelected) {
+      setSelectedSlideIds([draggedId]);
+      setLastSelectedId(draggedId);
+    }
+
+    const trackHeight = 60;
+    const pixelsPerSecond = 60;
 
     setTimeline(prevTimeline => {
-      const originalSlide = prevTimeline.find(s => s.id === slideId);
-      if (!originalSlide) return prevTimeline;
+      const updatedTimeline = [...prevTimeline];
+      
+      // Check for collisions before committing any changes
+      // Use the immediate idsToMove, not the stale selectedSlideIds from state
+      const slidesToMove = updatedTimeline.filter(s => idsToMove.includes(s.id));
+      
+      for (const slideToMove of slidesToMove) {
+        const newStartTime = Math.max(0, slideToMove.startTime + delta.x / pixelsPerSecond);
+        const newTrack = Math.round(slideToMove.track + delta.y / trackHeight);
+        const clampedTrack = Math.max(0, Math.min(newTrack, 4));
 
-      // Calculate new raw position
-      let newStartTime = Math.max(0, originalSlide.startTime + delta.x / pixelsPerSecond);
-      const newTrack = Math.round(originalSlide.track + delta.y / trackHeight);
-      const clampedTrack = Math.max(0, Math.min(newTrack, 4)); // Limit to 5 tracks (0-4)
+        const collision = updatedTimeline.some(slide => 
+          !idsToMove.includes(slide.id) && // Don't check against other selected slides
+          slide.track === clampedTrack &&
+          (newStartTime < slide.startTime + slide.duration && newStartTime + slideToMove.duration > slide.startTime)
+        );
 
-      // --- Snapping Logic ---
-      const otherSlidesOnTrack = prevTimeline.filter(s => s.id !== slideId && s.track === clampedTrack);
-      for (const slide of otherSlidesOnTrack) {
-        const slideEndTime = slide.startTime + slide.duration;
-        const slideStartTime = slide.startTime;
-        const draggedSlideEndTime = newStartTime + originalSlide.duration;
-
-        // Snap to the end of a preceding slide
-        if (Math.abs(newStartTime - slideEndTime) < snapThreshold) {
-          newStartTime = slideEndTime;
-          break;
-        }
-        // Snap to the start of a succeeding slide
-        if (Math.abs(draggedSlideEndTime - slideStartTime) < snapThreshold) {
-          newStartTime = slideStartTime - originalSlide.duration;
-          break;
+        if (collision) {
+          console.log("Collision detected! Reverting drag.");
+          return prevTimeline; // Abort update
         }
       }
-      newStartTime = Math.max(0, newStartTime); // Ensure it doesn't snap to < 0
 
-      // --- Collision Detection ---
-      const collision = prevTimeline.some(slide => 
-        slide.id !== slideId &&
-        slide.track === clampedTrack &&
-        (newStartTime < slide.startTime + slide.duration && newStartTime + originalSlide.duration > slide.startTime)
-      );
-
-      if (collision) {
-        console.log("Collision detected! Reverting drag.");
-        return prevTimeline; 
-      }
-
-      // No collision, update the slide
-      return prevTimeline.map(slide => 
-        slide.id === slideId 
-          ? { ...slide, startTime: newStartTime, track: clampedTrack } 
-          : slide
-      );
+      // If no collisions, apply changes
+      return updatedTimeline.map(slide => {
+        if (idsToMove.includes(slide.id)) {
+          const newStartTime = Math.max(0, slide.startTime + delta.x / pixelsPerSecond);
+          const newTrack = Math.round(slide.track + delta.y / trackHeight);
+          return { 
+            ...slide, 
+            startTime: newStartTime,
+            track: Math.max(0, Math.min(newTrack, 4))
+          };
+        }
+        return slide;
+      });
     });
   };
 
@@ -214,8 +225,8 @@ const App: React.FC = () => {
     const slideshowData: SlideshowData = {
       timeline,
       settings: {
-        width: 1920,
-        height: 1080,
+        width: canvasSettings.width,
+        height: canvasSettings.height,
         fps: 30
       }
     };
@@ -271,28 +282,31 @@ const App: React.FC = () => {
             ref={canvasRef}
             timeline={timeline}
             currentTime={currentTime}
-            selectedSlide={selectedSlide}
-            onSlideSelect={setSelectedSlide}
-            onSlideUpdate={updateSlide}
+            selectedSlideIds={selectedSlideIds}
+            onSlideSelect={handleSlideSelect}
+            onSlidesUpdate={updateSlides}
             isPlaying={isPlaying}
+            canvasSettings={canvasSettings}
           />
           
           <Timeline
             timeline={timeline}
             currentTime={currentTime}
             onTimeChange={setCurrentTime}
-            onSlideUpdate={updateSlide}
-            onSlideRemove={removeSlide}
-            onSlideSelect={setSelectedSlide}
-            selectedSlide={selectedSlide}
+            onSlidesUpdate={updateSlides}
+            onSlidesRemove={removeSlides}
+            onSlideSelect={handleSlideSelect}
+            selectedSlideIds={selectedSlideIds}
             onTimelineDragEnd={handleTimelineDragEnd}
           />
         </div>
 
         <div className={`right-panel ${isRightPanelOpen ? '' : 'closed'}`}>
           <ControlPanel
-            selectedSlide={selectedSlide}
-            onSlideUpdate={updateSlide}
+            selectedSlides={selectedSlides}
+            onSlidesUpdate={updateSlides}
+            canvasSettings={canvasSettings}
+            onCanvasSettingsChange={updateCanvasSettings}
           />
         </div>
       </div>

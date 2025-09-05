@@ -10,6 +10,7 @@
   flex-direction: column;
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
   background: #f5f5f5;
+  overflow: hidden; /* Prevent whole page from scrolling */
 }
 
 .app-header {
@@ -20,6 +21,7 @@
   background: #2c3e50;
   color: white;
   border-bottom: 2px solid #34495e;
+  flex-shrink: 0; /* Prevent header from shrinking */
 }
 
 .app-header h1 {
@@ -72,16 +74,16 @@
 .app-body {
   display: flex;
   flex: 1;
-  overflow: hidden;
+  overflow: hidden; /* Important for child flex containers */
 }
 
 .left-panel, .right-panel {
   width: 300px;
   background: white;
-  padding: 1rem;
-  overflow: hidden;
+  overflow-y: auto;
   transition: width 0.3s ease, padding 0.3s ease;
   flex-shrink: 0;
+  padding: 1rem;
 }
 
 .left-panel {
@@ -95,6 +97,7 @@
 .left-panel.closed, .right-panel.closed {
   width: 0;
   padding: 0;
+  overflow: hidden;
 }
 
 .center-panel {
@@ -103,7 +106,6 @@
   flex-direction: column;
   background: #ecf0f1;
   min-width: 0; /* Prevent flex item from overflowing its container */
-  transition: width 0.3s ease;
 }
 
 /* Image Library Styles */
@@ -179,6 +181,10 @@
   color: white;
   cursor: pointer;
   font-size: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
 }
 
 .image-name {
@@ -192,12 +198,14 @@
 
 /* Canvas Styles */
 .image-canvas-container {
-  flex-shrink: 0; /* Prevent this from shrinking */
+  flex: 1; /* Allow canvas container to grow and shrink */
   display: flex;
   justify-content: center;
   align-items: center;
   padding: 1rem;
-  max-height: 55vh; /* Give it a max-height */
+  overflow: hidden; /* Hide anything that spills out */
+  position: relative;
+  min-height: 0; /* Crucial for flex-shrink to work in a column flex container */
 }
 
 .image-canvas {
@@ -211,6 +219,11 @@
               linear-gradient(-45deg, transparent 75%, #ccc 75%);
   background-size: 20px 20px;
   background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+  /* Make canvas responsive */
+  width: 100%;
+  height: 100%;
+  max-width: 100%;
+  max-height: 100%;
 }
 
 .slide-item {
@@ -248,17 +261,18 @@
 
 /* Timeline Styles */
 .timeline-container {
-  flex: 1; /* Let it take the rest of the vertical space */
-  overflow: auto; /* Make this container scroll */
+  height: 250px; /* Give timeline a fixed height */
+  flex-shrink: 0; /* Prevent it from shrinking */
+  overflow: auto;
   padding: 0;
   background: #f8f9fa;
   border-top: 1px solid #dee2e6;
   position: relative;
-  width: 50vw;
+  width: 100%; /* Take full width of parent */
 }
 
 .time-ruler {
-  position: relative; /* Changed from sticky */
+  position: sticky; /* Make ruler stick to the top */
   top: 0;
   height: 20px;
   background: #e9ecef;
@@ -278,6 +292,9 @@
 .timeline {
   background: white;
   cursor: pointer;
+  position: relative; /* Needed for grid lines and playhead */
+  display: inline-block; /* Ensure container respects the calculated width */
+  min-width: 100%; /* Fill at least the container width */
 }
 
 .grid-line {
@@ -490,6 +507,25 @@
   color: #7f8c8d;
 }
 
+.preview-controls button {
+  background: transparent;
+  border: none;
+  font-size: 1.2rem;
+  color: #2c3e50;
+  cursor: pointer;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: background-color 0.2s;
+}
+
+.preview-controls button:hover {
+  background-color: #ecf0f1;
+}
+
 /* Responsive */
 @media (max-width: 768px) {
   .app-body {
@@ -498,10 +534,15 @@
   
   .left-panel, .right-panel {
     width: 100%;
-    height: 200px;
+    height: auto; /* Adjust height automatically */
+    max-height: 30vh; /* Limit height on small screens */
   }
   
+  .center-panel {
+    flex: 1;
+  }
+
   .timeline-container {
-    height: 150px;
+    height: 200px; /* Adjust timeline height for mobile */
   }
 }

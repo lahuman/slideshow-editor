@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useDraggable } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
 import { FaTrash } from 'react-icons/fa';
@@ -8,20 +8,20 @@ interface DraggableTimelineItemProps {
   slide: Slide;
   pixelsPerSecond: number; 
   trackHeight: number;
-  selectedSlide: Slide | null;
-  onSlideSelect: (slide: Slide) => void;
-  onSlideRemove: (slideId: number) => void;
-  onSlideDurationChange: (slideId: number, newDuration: string) => void;
+  isSelected: boolean;
+  onSelect: (slideId: number, meta: { shift: boolean, ctrl: boolean }) => void;
+  onRemove: (slideId: number) => void;
+  onDurationChange: (slideId: number, newDuration: string) => void;
 }
 
 export const DraggableTimelineItem: React.FC<DraggableTimelineItemProps> = ({
   slide,
   pixelsPerSecond,
   trackHeight,
-  selectedSlide,
-  onSlideSelect,
-  onSlideRemove,
-  onSlideDurationChange,
+  isSelected,
+  onSelect,
+  onRemove,
+  onDurationChange,
 }) => {
   const {
     attributes,
@@ -31,6 +31,25 @@ export const DraggableTimelineItem: React.FC<DraggableTimelineItemProps> = ({
     isDragging,
   } = useDraggable({ id: slide.id });
 
+  const [inputValue, setInputValue] = useState(slide.duration.toString());
+
+  useEffect(() => {
+    if (parseFloat(inputValue) !== slide.duration) {
+      setInputValue(slide.duration.toString());
+    }
+  }, [slide.duration]);
+
+  const handleBlur = () => {
+    const value = parseFloat(inputValue);
+    if (isNaN(value) || inputValue.trim() === '') {
+      setInputValue(slide.duration.toString());
+    } else {
+      const clampedValue = Math.max(1, Math.min(value, 100));
+      onDurationChange(slide.id, clampedValue.toString());
+      setInputValue(clampedValue.toString());
+    }
+  };
+
   const style: React.CSSProperties = {
     position: 'absolute',
     top: `${slide.track * trackHeight + trackHeight * 0.1}px`,
@@ -39,7 +58,7 @@ export const DraggableTimelineItem: React.FC<DraggableTimelineItemProps> = ({
     height: `${trackHeight * 0.8}px`,
     transform: CSS.Translate.toString(transform),
     transition: isDragging ? 'none' : 'top 0.25s ease, left 0.25s ease',
-    zIndex: isDragging ? 100 : 10 + slide.track,
+    zIndex: isDragging ? 100 : (isSelected ? 50 : 10 + slide.track),
     display: 'flex',
     alignItems: 'center',
     padding: '0.5rem',
@@ -49,10 +68,10 @@ export const DraggableTimelineItem: React.FC<DraggableTimelineItemProps> = ({
     <div
       ref={setNodeRef}
       style={style}
-      className={`timeline-slide ${selectedSlide?.id === slide.id ? 'selected' : ''}`}
+      className={`timeline-slide ${isSelected ? 'selected' : ''}`}
       onClick={(e) => {
         e.stopPropagation();
-        onSlideSelect(slide);
+        onSelect(slide.id, { shift: e.shiftKey, ctrl: e.metaKey || e.ctrlKey });
       }}
     >
       <div 
@@ -60,26 +79,33 @@ export const DraggableTimelineItem: React.FC<DraggableTimelineItemProps> = ({
         {...listeners} 
         className="slide-thumbnail"
         style={{ cursor: 'grab', height: '100%' }}
-        onClick={(e) => e.stopPropagation()}
       >
-        <img src={slide.image.url} alt="" />
+        <img src={slide.image.url} alt="" style={{ pointerEvents: 'none' }} />
       </div>
       <div className="slide-info">
         <span className="slide-name">{slide.image.name}</span>
         <input
           type="number"
-          value={slide.duration}
-          min="0.5"
+          value={inputValue}
+          min="1"
           step="0.1"
-          onChange={(e) => onSlideDurationChange(slide.id, e.target.value)}
-          onClick={(e) => e.stopPropagation()}
+          max="100"
+          style={{ maxWidth: '100px' }}
+          onChange={(e) => setInputValue(e.target.value)}
+          onBlur={handleBlur}
+          onClick={(e) => e.stopPropagation()} // Prevent selection change on input click
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              (e.target as HTMLInputElement).blur();
+            }
+          }}
         />
       </div>
       <button
         className="remove-slide-btn"
         onClick={(e) => {
           e.stopPropagation();
-          onSlideRemove(slide.id);
+          onRemove(slide.id);
         }}
       >
         <FaTrash />

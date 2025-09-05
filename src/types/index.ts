@@ -31,9 +31,10 @@ export interface TransitionOption {
   label: string;
 }
 
-export interface CanvasSize {
+export interface CanvasSettings {
   width: number;
   height: number;
+  backgroundColor: string;
 }
 
 export interface SlideshowData {
