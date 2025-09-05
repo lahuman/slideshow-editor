@@ -1,0 +1,1 @@
+{"root":["./src/app.tsx","./src/main.tsx","./src/vite-env.d.ts","./src/components/controlpanel.tsx","./src/components/draggableitem.tsx","./src/components/draggabletimelineitem.tsx","./src/components/imagecanvas.tsx","./src/components/imagelibrary.tsx","./src/components/previewmodal.tsx","./src/components/timeline.tsx","./src/types/index.ts"],"version":"5.8.3"}
