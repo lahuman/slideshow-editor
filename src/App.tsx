@@ -20,8 +20,7 @@ const App: React.FC = () => {
   const [isLeftPanelOpen, setIsLeftPanelOpen] = useState<boolean>(true);
   const [isRightPanelOpen, setIsRightPanelOpen] = useState<boolean>(true);
   const [canvasSettings, setCanvasSettings] = useState<CanvasSettings>({
-    width: 800,
-    height: 450,
+    aspectRatio: '16:9',
     backgroundColor: '#000000',
   });
   const canvasRef = useRef<HTMLDivElement>(null);
@@ -51,16 +50,39 @@ const App: React.FC = () => {
   }, [isPlaying, totalDuration]);
 
   const handleImageUpload = (files: FileList): void => {
-    const newImages: ImageFile[] = Array.from(files).map((file, index) => ({
-      id: Date.now() + index,
-      name: file.name,
-      url: URL.createObjectURL(file),
-      file
-    }));
-    setImages(prevImages => [...prevImages, ...newImages]);
+    const newImagesPromises = Array.from(files).map((file, index) => {
+      return new Promise<ImageFile>((resolve) => {
+        const img = new Image();
+        const url = URL.createObjectURL(file);
+        img.onload = () => {
+          const imageFile: ImageFile = {
+            id: Date.now() + index,
+            name: file.name,
+            url,
+            file,
+            width: img.width,
+            height: img.height,
+          };
+          resolve(imageFile);
+        };
+        img.src = url;
+      });
+    });
+
+    Promise.all(newImagesPromises).then((newImages) => {
+      setImages((prevImages) => [...prevImages, ...newImages]);
+    });
   };
 
   const addToTimeline = (image: ImageFile): void => {
+    const [ratioWidth, ratioHeight] = canvasSettings.aspectRatio.split(':').map(Number);
+    const canvasWidth = 1024;
+    const canvasHeight = (canvasWidth / ratioWidth) * ratioHeight;
+
+    const scaleX = canvasWidth / image.width;
+    const scaleY = canvasHeight / image.height;
+    const scale = Math.min(scaleX, scaleY, 1);
+
     setTimeline(prevTimeline => {
       const trackEndTimes: { [key: number]: number } = {};
       prevTimeline.forEach(slide => {
@@ -100,7 +122,7 @@ const App: React.FC = () => {
         startTime: earliestEndTime,
         duration: 3,
         position: { x: 0, y: 0 },
-        scale: 1,
+        scale,
         rotation: 0,
         transition: 'fade',
         transitionDuration: 0.5,
@@ -221,12 +243,12 @@ const App: React.FC = () => {
 
   const exportSlideshow = async (): Promise<void> => {
     if (!canvasRef.current) return;
-    
+
     const slideshowData: SlideshowData = {
       timeline,
       settings: {
-        width: canvasSettings.width,
-        height: canvasSettings.height,
+        aspectRatio: canvasSettings.aspectRatio,
+        width: 1920, // Standard export width
         fps: 30
       }
     };
@@ -315,6 +337,7 @@ const App: React.FC = () => {
         <PreviewModal
           timeline={timeline}
           onClose={() => setShowPreview(false)}
+          canvasSettings={canvasSettings}
         />
       )}
     </div>

@@ -102,11 +102,13 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
     <div className="control-panel">
       <h3>캔버스 속성</h3>
       <div className="property-group">
-        <label>크기</label>
-        <div className="input-group">
-          <input type="number" value={canvasSettings.width} onChange={(e) => handleCanvasSettingChange('width', e.target.value, parseInt)} placeholder="W" />
-          <input type="number" value={canvasSettings.height} onChange={(e) => handleCanvasSettingChange('height', e.target.value, parseInt)} placeholder="H" />
-        </div>
+        <label>비율</label>
+        <select value={canvasSettings.aspectRatio} onChange={(e) => onCanvasSettingsChange({ aspectRatio: e.target.value })}>
+          <option value="16:9">16:9</option>
+          <option value="4:3">4:3</option>
+          <option value="1:1">1:1</option>
+          <option value="9:16">9:16</option>
+        </select>
       </div>
       <div className="property-group">
         <label>배경색</label>
@@ -135,7 +137,7 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
 
           <div className="property-group">
             <label>크기</label>
-            <input type="range" min="0.1" max="3" step="0.1" value={commonValues.scale === 'mixed' ? 1 : commonValues.scale} onChange={(e) => handlePropertyChange('scale', parseFloat(e.target.value))} style={{opacity: commonValues.scale === 'mixed' ? 0.5 : 1}} />
+            <input type="range" min="0.2" max="3" step="0.1" value={commonValues.scale === 'mixed' ? 1 : commonValues.scale} onChange={(e) => handlePropertyChange('scale', parseFloat(e.target.value))} style={{opacity: commonValues.scale === 'mixed' ? 0.5 : 1}} />
             <span>{commonValues.scale === 'mixed' ? '혼합' : commonValues.scale.toFixed(1)}</span>
           </div>
 

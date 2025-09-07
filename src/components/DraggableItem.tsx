@@ -81,20 +81,24 @@ const DraggableItem: React.FC<DraggableItemProps> = ({
         style={{ 
           zIndex: slide.zIndex,
           opacity: transitionStyle.opacity, // Apply opacity from transition
+          width: slide.image.width,
+          height: slide.image.height,
         }}
       >
         <div 
           style={{
             transform: combinedTransform, // Apply combined transform
             transition: isPlaying ? 'opacity 0.2s, transform 0.2s' : 'transform 0.2s',
+            width: '100%',
+            height: '100%',
           }}
         >
           <img
             src={slide.image.url}
             alt={slide.image.name}
             style={{
-              maxWidth: '200px',
-              maxHeight: '150px',
+              width: '100%',
+              height: '100%',
               objectFit: 'contain',
             }}
             draggable={false}

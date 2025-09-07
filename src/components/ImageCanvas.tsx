@@ -23,6 +23,10 @@ const ImageCanvas = forwardRef<HTMLDivElement, ImageCanvasProps>(({
   canvasSettings
 }, ref) => {
 
+  const [ratioWidth, ratioHeight] = canvasSettings.aspectRatio.split(':').map(Number);
+  const canvasWidth = 1024;
+  const canvasHeight = (canvasWidth / ratioWidth) * ratioHeight;
+
   const slidesToRender = (
     !isPlaying && selectedSlideIds.length > 0
       ? timeline.filter(s => selectedSlideIds.includes(s.id))
@@ -34,13 +38,11 @@ const ImageCanvas = forwardRef<HTMLDivElement, ImageCanvasProps>(({
 
   const handleSlideClick = (slide: Slide): void => {
     if (!isPlaying) {
-      // Clicking a slide on the canvas uses standard selection logic (no shift/ctrl)
       onSlideSelect(slide.id, { shift: false, ctrl: false });
     }
   };
 
   const handleDragStop = (slide: Slide, _e: DraggableEvent, data: DraggableData): void => {
-    // When dragging a slide on the canvas, only that slide should be affected.
     onSlidesUpdate([slide.id], {
       position: { x: data.x, y: data.y }
     });
@@ -52,9 +54,11 @@ const ImageCanvas = forwardRef<HTMLDivElement, ImageCanvasProps>(({
         ref={ref}
         className="image-canvas"
         style={{ 
-          width: canvasSettings.width,
-          height: canvasSettings.height,
-          background: canvasSettings.backgroundColor
+          width: canvasWidth,
+          height: canvasHeight,
+          background: canvasSettings.backgroundColor,
+          maxWidth: '100%',
+          maxHeight: '100%'
         }}
         onClick={() => onSlideSelect(0, { shift: false, ctrl: true })} // Deselect all
       >

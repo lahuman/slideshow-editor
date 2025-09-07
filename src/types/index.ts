@@ -3,6 +3,8 @@ export interface ImageFile {
   name: string;
   url: string;
   file: File;
+  width: number;
+  height: number;
 }
 
 export interface Position {
@@ -32,16 +34,15 @@ export interface TransitionOption {
 }
 
 export interface CanvasSettings {
-  width: number;
-  height: number;
+  aspectRatio: string;
   backgroundColor: string;
 }
 
 export interface SlideshowData {
   timeline: Slide[];
   settings: {
+    aspectRatio: string;
     width: number;
-    height: number;
     fps: number;
   };
 }

@@ -26,8 +26,8 @@
 - React Icons
 - react-draggable
 - html2canvas
-- @dnd-kit/core
-- @dnd-kit/sortable
+- <!-- Import failed: dnd-kit/core - ENOENT: no such file or directory, access '/Users/lahuman/DEV/slideshow-editor/dnd-kit/core' -->
+- <!-- Import failed: dnd-kit/sortable - ENOENT: no such file or directory, access '/Users/lahuman/DEV/slideshow-editor/dnd-kit/sortable' -->
 
 ---
 
@@ -95,6 +95,9 @@ npm run dev
 
 ## 작업 내역
 
+- **다크 모드 지원**:
+  - `index.css`에 라이트/다크 모드에 대한 시맨틱 색상 변수를 정의.
+  - `App.css`의 하드코딩된 색상 값을 CSS 변수로 대체하여 시스템 설정에 따라 테마가 자동으로 전환되도록 리팩토링.
 - **React 18+ 호환성 확보**: `react-draggable` 라이브러리 사용 시 발생하는 `findDOMNode` 오류를 `nodeRef`를 사용하도록 수정하여 해결.
 - **React Hooks 규칙 준수**: 잘못된 Hook 사용으로 인한 오류를 방지하기 위해 `ImageCanvas` 컴포넌트의 로직을 `DraggableItem` 자식 컴포넌트로 분리하여 리팩토링.
 - **타임라인 기능 개선**:
