@@ -71,6 +71,7 @@ const ImageCanvas = forwardRef<HTMLDivElement, ImageCanvasProps>(({
             isPlaying={isPlaying}
             onSlideClick={handleSlideClick}
             onDragStop={handleDragStop}
+            canvasSettings={canvasSettings}
           />
         ))}
       </div>

@@ -15,16 +15,16 @@ const getSlideStyle = (slide: Slide, currentTime: number, canvasSettings: Canvas
   const fadeOutStartTime = endTime - transitionDuration;
 
   const [ratioWidth, ratioHeight] = canvasSettings.aspectRatio.split(':').map(Number);
-  const virtualWidth = 800;
-  const virtualHeight = (virtualWidth / ratioWidth) * ratioHeight;
+  const canvasWidth = 1024;
+  const canvasHeight = (canvasWidth / ratioWidth) * ratioHeight;
 
   let opacity = 0;
-  let transform = `scale(${scale}) rotate(${rotation}deg)`;
+  let transform = `rotate(${rotation}deg)`;
 
-  const left = `${(position.x / virtualWidth) * 100}%`;
-  const top = `${(position.y / virtualHeight) * 100}%`;
-  const width = `${(slide.image.width * scale / virtualWidth) * 100}%`;
-  const height = `${(slide.image.height * scale / virtualHeight) * 100}%`;
+  const left = position.x;
+  const top = position.y;
+  const width = canvasWidth * scale;
+  const height = canvasHeight * scale;
 
   if (currentTime >= startTime && currentTime < endTime) {
     let transitionProgress = 1;
@@ -38,13 +38,13 @@ const getSlideStyle = (slide: Slide, currentTime: number, canvasSettings: Canvas
           opacity = transitionProgress;
           break;
         case 'slide':
-          transform += ` translateX(${(1 - transitionProgress) * -100}%)`;
+          transform += ` translateX(${(1 - transitionProgress) * 100}%)`;
           break;
         case 'zoom':
-          transform = `scale(${scale * transitionProgress}) rotate(${rotation}deg)`;
+          transform = `scale(${transitionProgress})`;
           break;
         case 'flip':
-          transform += ` perspective(1000px) rotateY(${(1 - transitionProgress) * -90}deg)`;
+          transform += ` perspective(1000px) rotateY(${(1 - transitionProgress) * 90}deg)`;
           break;
         default:
           opacity = 1;
@@ -59,13 +59,13 @@ const getSlideStyle = (slide: Slide, currentTime: number, canvasSettings: Canvas
           opacity = transitionProgress;
           break;
         case 'slide':
-          transform += ` translateX(${(1 - transitionProgress) * 100}%)`;
+          transform += ` translateX(${(1 - transitionProgress) * -100}%)`;
           break;
         case 'zoom':
-          transform = `scale(${scale * transitionProgress}) rotate(${rotation}deg)`;
+          transform = `scale(${transitionProgress})`;
           break;
         case 'flip':
-          transform += ` perspective(1000px) rotateY(${(1 - transitionProgress) * 90}deg)`;
+          transform += ` perspective(1000px) rotateY(${(1 - transitionProgress) * -90}deg)`;
           break;
         default:
           opacity = 1;

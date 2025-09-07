@@ -83,6 +83,10 @@ const App: React.FC = () => {
     const scaleY = canvasHeight / image.height;
     const scale = Math.min(scaleX, scaleY, 1);
 
+    // Calculate initial position to center the image
+    const initialX = (canvasWidth - (image.width * scale)) / 2;
+    const initialY = (canvasHeight - (image.height * scale)) / 2;
+
     setTimeline(prevTimeline => {
       const trackEndTimes: { [key: number]: number } = {};
       prevTimeline.forEach(slide => {
@@ -121,7 +125,7 @@ const App: React.FC = () => {
         image,
         startTime: earliestEndTime,
         duration: 3,
-        position: { x: 0, y: 0 },
+        position: { x: initialX, y: initialY }, // Use calculated initial position
         scale,
         rotation: 0,
         transition: 'fade',

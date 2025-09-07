@@ -1,6 +1,6 @@
 import React from 'react';
 import Draggable, { DraggableData, DraggableEvent } from 'react-draggable';
-import { Slide } from '../types';
+import { Slide, CanvasSettings } from '../types';
 
 interface DraggableItemProps {
   slide: Slide;
@@ -9,6 +9,7 @@ interface DraggableItemProps {
   isPlaying: boolean;
   onSlideClick: (slide: Slide) => void;
   onDragStop: (slide: Slide, e: DraggableEvent, data: DraggableData) => void;
+  canvasSettings: CanvasSettings;
 }
 
 const DraggableItem: React.FC<DraggableItemProps> = ({
