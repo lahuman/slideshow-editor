@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { FaTimes, FaPlay, FaPause, FaExpand, FaCompress, FaRedo, FaStepBackward, FaStepForward } from 'react-icons/fa';
 import { Slide, CanvasSettings } from '../types';
 
@@ -6,98 +6,83 @@ interface PreviewModalProps {
   timeline: Slide[];
   onClose: () => void;
   canvasSettings: CanvasSettings;
+  mainCanvasDimensions: { width: number; height: number; };
 }
 
-const getSlideStyle = (slide: Slide, currentTime: number, canvasSettings: CanvasSettings): React.CSSProperties => {
-  const { startTime, duration, transition, transitionDuration, position, scale, rotation, zIndex } = slide;
-  const endTime = startTime + duration;
-  const fadeInEndTime = startTime + transitionDuration;
-  const fadeOutStartTime = endTime - transitionDuration;
-
-  const [ratioWidth, ratioHeight] = canvasSettings.aspectRatio.split(':').map(Number);
-  const canvasWidth = 1024;
-  const canvasHeight = (canvasWidth / ratioWidth) * ratioHeight;
-
-  let opacity = 0;
-  let transform = `rotate(${rotation}deg)`;
-
-  const left = position.x;
-  const top = position.y;
-  const width = canvasWidth * scale;
-  const height = canvasHeight * scale;
-
-  if (currentTime >= startTime && currentTime < endTime) {
-    let transitionProgress = 1;
-
-    if (currentTime < fadeInEndTime) { // Transitioning In
-      transitionProgress = (currentTime - startTime) / transitionDuration;
-      opacity = 1;
-      
-      switch (transition) {
-        case 'fade':
-          opacity = transitionProgress;
-          break;
-        case 'slide':
-          transform += ` translateX(${(1 - transitionProgress) * 100}%)`;
-          break;
-        case 'zoom':
-          transform = `scale(${transitionProgress})`;
-          break;
-        case 'flip':
-          transform += ` perspective(1000px) rotateY(${(1 - transitionProgress) * 90}deg)`;
-          break;
-        default:
-          opacity = 1;
-          break;
-      }
-    } else if (currentTime >= fadeOutStartTime) { // Transitioning Out
-      transitionProgress = (endTime - currentTime) / transitionDuration;
-      opacity = 1;
-
-      switch (transition) {
-        case 'fade':
-          opacity = transitionProgress;
-          break;
-        case 'slide':
-          transform += ` translateX(${(1 - transitionProgress) * -100}%)`;
-          break;
-        case 'zoom':
-          transform = `scale(${transitionProgress})`;
-          break;
-        case 'flip':
-          transform += ` perspective(1000px) rotateY(${(1 - transitionProgress) * -90}deg)`;
-          break;
-        default:
-          opacity = 1;
-          break;
-      }
-    } else {
-      opacity = 1;
-    }
-  }
-
-  return {
-    position: 'absolute',
-    left,
-    top,
-    width,
-    height,
-    opacity: Math.max(0, Math.min(1, opacity)),
-    transform,
-    zIndex,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-  };
-};
-
-
-const PreviewModal: React.FC<PreviewModalProps> = ({ timeline, onClose, canvasSettings }) => {
+const PreviewModal: React.FC<PreviewModalProps> = ({ timeline, onClose, canvasSettings, mainCanvasDimensions }) => {
   const [isPlaying, setIsPlaying] = useState<boolean>(true);
-  const [isLooping, setIsLooping] = useState<boolean>(false);
+  const [isLooping, setIsLooping] = useState<boolean>(true);
   const [currentTime, setCurrentTime] = useState<number>(0);
   const [isFullscreen, setIsFullscreen] = useState<boolean>(!!document.fullscreenElement);
+  const [previewDimensions, setPreviewDimensions] = useState({ width: 0, height: 0 });
   const canvasRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const resizeObserver = new ResizeObserver(entries => {
+      if (!entries || entries.length === 0) return;
+      const { width, height } = entries[0].contentRect;
+      setPreviewDimensions({ width, height });
+    });
+
+    if (canvasRef.current) {
+      resizeObserver.observe(canvasRef.current);
+    }
+
+    return () => resizeObserver.disconnect();
+  }, []);
+
+  const scaleFactor = useMemo(() => {
+    if (mainCanvasDimensions.width === 0 || previewDimensions.width === 0) {
+      return 1;
+    }
+    return previewDimensions.width / mainCanvasDimensions.width;
+  }, [mainCanvasDimensions, previewDimensions]);
+
+  const getSlideStyle = (slide: Slide): React.CSSProperties => {
+    const { startTime, duration, transition, transitionDuration, position, scale, rotation, zIndex, image } = slide;
+    const endTime = startTime + duration;
+    const fadeInEndTime = startTime + transitionDuration;
+    const fadeOutStartTime = endTime - transitionDuration;
+
+    let opacity = 0;
+    let finalTransform = `scale(${scale * scaleFactor}) rotate(${rotation}deg)`;
+    let transitionTransform = '';
+
+    if (currentTime >= startTime && currentTime < endTime) {
+      opacity = 1; // Default to visible within its time range
+      let transitionProgress = 1;
+
+      if (currentTime < fadeInEndTime) { // Transitioning In
+        transitionProgress = (currentTime - startTime) / transitionDuration;
+        switch (transition) {
+          case 'fade': opacity = transitionProgress; break;
+          case 'slide': transitionTransform = `translateX(${(1 - transitionProgress) * 100}%)`; break;
+          case 'zoom': transitionTransform = `scale(${transitionProgress})`; break;
+          case 'flip': transitionTransform = `perspective(1000px) rotateY(${(1 - transitionProgress) * 90}deg)`; break;
+        }
+      } else if (currentTime >= fadeOutStartTime) { // Transitioning Out
+        transitionProgress = (endTime - currentTime) / transitionDuration;
+        switch (transition) {
+          case 'fade': opacity = transitionProgress; break;
+          case 'slide': transitionTransform = `translateX(${(1 - transitionProgress) * -100}%)`; break;
+          case 'zoom': transitionTransform = `scale(${transitionProgress})`; break;
+          case 'flip': transitionTransform = `perspective(1000px) rotateY(${(1 - transitionProgress) * -90}deg)`; break;
+        }
+      }
+    }
+
+    return {
+      position: 'absolute',
+      left: position.x * scaleFactor,
+      top: position.y * scaleFactor,
+      width: image.width,
+      height: image.height,
+      opacity: Math.max(0, Math.min(1, opacity)),
+      transform: `${transitionTransform} ${finalTransform}`.trim(),
+      transformOrigin: '0 0',
+      zIndex,
+    };
+  };
 
   const totalDuration = timeline.reduce((acc, slide) => 
     Math.max(acc, slide.startTime + slide.duration), 0
@@ -129,12 +114,12 @@ const PreviewModal: React.FC<PreviewModalProps> = ({ timeline, onClose, canvasSe
     return () => document.removeEventListener('fullscreenchange', onFullscreenChange);
   }, []);
 
-  const getVisibleSlides = (): Slide[] => {
-    return timeline.filter(slide => {
+  const visibleSlides = useMemo(() => 
+    timeline.filter(slide => {
       const endTime = slide.startTime + slide.duration;
       return currentTime >= slide.startTime && currentTime < endTime;
-    }).sort((a, b) => a.zIndex - b.zIndex);
-  };
+    }).sort((a, b) => a.zIndex - b.zIndex)
+  , [timeline, currentTime]);
 
   const handleTimeSliderChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
     const newTime = parseFloat(e.target.value);
@@ -171,7 +156,7 @@ const PreviewModal: React.FC<PreviewModalProps> = ({ timeline, onClose, canvasSe
   };
 
   const toggleFullscreen = () => {
-    const element = canvasRef.current;
+    const element = canvasRef.current?.closest('.preview-modal-overlay');
     if (!element) return;
 
     if (!document.fullscreenElement) {
@@ -183,11 +168,9 @@ const PreviewModal: React.FC<PreviewModalProps> = ({ timeline, onClose, canvasSe
     }
   };
 
-  const visibleSlides = getVisibleSlides();
-
   return (
-    <div className="preview-modal-overlay">
-      <div className="preview-modal">
+    <div className="preview-modal-overlay" onClick={onClose}>
+      <div className="preview-modal" onClick={(e) => e.stopPropagation()}>
         <div className="preview-header">
           <h3>미리보기</h3>
           <button onClick={onClose} className="close-btn">
@@ -203,11 +186,11 @@ const PreviewModal: React.FC<PreviewModalProps> = ({ timeline, onClose, canvasSe
             background: canvasSettings.backgroundColor
           }}
         >
-          {visibleSlides.map(slide => (
+          {previewDimensions.width > 0 && visibleSlides.map(slide => (
             <div
               key={slide.id}
               className="preview-slide"
-              style={getSlideStyle(slide, currentTime, canvasSettings)}
+              style={getSlideStyle(slide)}
             >
               <img
                 src={slide.image.url}
@@ -244,7 +227,7 @@ const PreviewModal: React.FC<PreviewModalProps> = ({ timeline, onClose, canvasSe
             onChange={handleTimeSliderChange}
             className="time-slider"
           />
-          <button onClick={() => setIsLooping(prev => !prev)} style={{ color: isLooping ? 'red' : 'inherit' }}>
+          <button onClick={() => setIsLooping(prev => !prev)} style={{ color: isLooping ? 'var(--color-interactive-primary)' : 'inherit' }}>
             <FaRedo />
           </button>
           <button onClick={toggleFullscreen}>

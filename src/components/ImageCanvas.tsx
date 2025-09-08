@@ -11,6 +11,7 @@ interface ImageCanvasProps {
   onSlidesUpdate: (slideIds: number[], updates: Partial<Slide>) => void;
   isPlaying: boolean;
   canvasSettings: CanvasSettings;
+  canvasDimensions: { width: number; height: number; };
 }
 
 const ImageCanvas = forwardRef<HTMLDivElement, ImageCanvasProps>(({
@@ -20,12 +21,9 @@ const ImageCanvas = forwardRef<HTMLDivElement, ImageCanvasProps>(({
   onSlideSelect,
   onSlidesUpdate,
   isPlaying,
-  canvasSettings
+  canvasSettings,
+  canvasDimensions
 }, ref) => {
-
-  const [ratioWidth, ratioHeight] = canvasSettings.aspectRatio.split(':').map(Number);
-  const canvasWidth = 1024;
-  const canvasHeight = (canvasWidth / ratioWidth) * ratioHeight;
 
   const slidesToRender = (
     !isPlaying && selectedSlideIds.length > 0
@@ -54,11 +52,9 @@ const ImageCanvas = forwardRef<HTMLDivElement, ImageCanvasProps>(({
         ref={ref}
         className="image-canvas"
         style={{ 
-          width: canvasWidth,
-          height: canvasHeight,
+          width: canvasDimensions.width,
+          height: canvasDimensions.height,
           background: canvasSettings.backgroundColor,
-          maxWidth: '100%',
-          maxHeight: '100%'
         }}
         onClick={() => onSlideSelect(0, { shift: false, ctrl: true })} // Deselect all
       >
@@ -72,6 +68,7 @@ const ImageCanvas = forwardRef<HTMLDivElement, ImageCanvasProps>(({
             onSlideClick={handleSlideClick}
             onDragStop={handleDragStop}
             canvasSettings={canvasSettings}
+            canvasDimensions={canvasDimensions}
           />
         ))}
       </div>

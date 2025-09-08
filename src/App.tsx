@@ -1,4 +1,4 @@
-import React, { useState, useRef, useMemo } from 'react';
+import React, { useState, useRef, useMemo, useEffect } from 'react';
 import ImageLibrary from './components/ImageLibrary';
 import Timeline from './components/Timeline';
 import ImageCanvas from './components/ImageCanvas';
@@ -23,7 +23,37 @@ const App: React.FC = () => {
     aspectRatio: '16:9',
     backgroundColor: '#000000',
   });
+  const [canvasDimensions, setCanvasDimensions] = useState({ width: 0, height: 0 });
+  const canvasContainerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const resizeObserver = new ResizeObserver(entries => {
+      if (!entries || entries.length === 0) {
+        return;
+      }
+      const { width, height } = entries[0].contentRect;
+      const [ratioWidth, ratioHeight] = canvasSettings.aspectRatio.split(':').map(Number);
+      
+      let newWidth = width;
+      let newHeight = (width / ratioWidth) * ratioHeight;
+
+      if (newHeight > height) {
+        newHeight = height;
+        newWidth = (height / ratioHeight) * ratioWidth;
+      }
+
+      setCanvasDimensions({ width: newWidth, height: newHeight });
+    });
+
+    if (canvasContainerRef.current) {
+      resizeObserver.observe(canvasContainerRef.current);
+    }
+
+    return () => {
+      resizeObserver.disconnect();
+    };
+  }, [canvasSettings.aspectRatio]);
 
   const selectedSlides = useMemo(() => 
     timeline.filter(slide => selectedSlideIds.includes(slide.id)),
@@ -75,17 +105,15 @@ const App: React.FC = () => {
   };
 
   const addToTimeline = (image: ImageFile): void => {
-    const [ratioWidth, ratioHeight] = canvasSettings.aspectRatio.split(':').map(Number);
-    const canvasWidth = 1024;
-    const canvasHeight = (canvasWidth / ratioWidth) * ratioHeight;
+    if (canvasDimensions.width === 0 || canvasDimensions.height === 0) return;
 
-    const scaleX = canvasWidth / image.width;
-    const scaleY = canvasHeight / image.height;
+    const scaleX = canvasDimensions.width / image.width;
+    const scaleY = canvasDimensions.height / image.height;
     const scale = Math.min(scaleX, scaleY, 1);
 
     // Calculate initial position to center the image
-    const initialX = (canvasWidth - (image.width * scale)) / 2;
-    const initialY = (canvasHeight - (image.height * scale)) / 2;
+    const initialX = (canvasDimensions.width - (image.width * scale)) / 2;
+    const initialY = (canvasDimensions.height - (image.height * scale)) / 2;
 
     setTimeline(prevTimeline => {
       const trackEndTimes: { [key: number]: number } = {};
@@ -279,8 +307,7 @@ const App: React.FC = () => {
         <h1>슬라이드쇼 에디터</h1>
         <div className="toolbar">
           <button onClick={togglePlayback} className="play-btn">
-            {isPlaying ? <FaPause /> : <FaPlay />}
-            {isPlaying ? '일시정지' : '재생'}
+            {isPlaying ? <FaPause /> : '재생'}
           </button>
           <button onClick={() => setShowPreview(true)} className="preview-btn">
             <FaEye /> 미리보기
@@ -289,7 +316,7 @@ const App: React.FC = () => {
             <FaDownload /> 내보내기
           </button>
         </div>
-        <button onClick={toggleRightPanel} className="panel-toggle-btn">
+        <button onClick={toggleRightPanel} className="panel-toggle-btn" style={{ marginLeft: 'auto' }}>
           <FaAngleDoubleRight style={{ transform: isRightPanelOpen ? 'none' : 'rotate(180deg)' }} />
         </button>
       </header>
@@ -303,7 +330,7 @@ const App: React.FC = () => {
           />
         </div>
 
-        <div className="center-panel">
+        <div className="center-panel" ref={canvasContainerRef}>
           <ImageCanvas
             ref={canvasRef}
             timeline={timeline}
@@ -313,6 +340,7 @@ const App: React.FC = () => {
             onSlidesUpdate={updateSlides}
             isPlaying={isPlaying}
             canvasSettings={canvasSettings}
+            canvasDimensions={canvasDimensions}
           />
           
           <Timeline
@@ -342,6 +370,7 @@ const App: React.FC = () => {
           timeline={timeline}
           onClose={() => setShowPreview(false)}
           canvasSettings={canvasSettings}
+          mainCanvasDimensions={canvasDimensions}
         />
       )}
     </div>

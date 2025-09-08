@@ -10,6 +10,7 @@ interface DraggableItemProps {
   onSlideClick: (slide: Slide) => void;
   onDragStop: (slide: Slide, e: DraggableEvent, data: DraggableData) => void;
   canvasSettings: CanvasSettings;
+  canvasDimensions: { width: number; height: number; };
 }
 
 const DraggableItem: React.FC<DraggableItemProps> = ({
@@ -19,6 +20,7 @@ const DraggableItem: React.FC<DraggableItemProps> = ({
   isPlaying,
   onSlideClick,
   onDragStop,
+  canvasDimensions,
 }) => {
   const nodeRef = React.useRef(null);
 
@@ -67,6 +69,16 @@ const DraggableItem: React.FC<DraggableItemProps> = ({
   const transitionStyle = getTransitionStyle();
   const combinedTransform = `${transitionStyle.transform || ''} ${userTransform}`.trim();
 
+  const scaledWidth = slide.image.width * slide.scale;
+  const scaledHeight = slide.image.height * slide.scale;
+
+  const bounds = {
+    left: 0,
+    top: 0,
+    right: canvasDimensions.width - scaledWidth,
+    bottom: canvasDimensions.height - scaledHeight,
+  };
+
   return (
     <Draggable
       key={slide.id}
@@ -74,6 +86,7 @@ const DraggableItem: React.FC<DraggableItemProps> = ({
       position={slide.position}
       onStop={(e, data) => onDragStop(slide, e, data)}
       disabled={isPlaying}
+      bounds={bounds}
     >
       <div
         ref={nodeRef}
@@ -87,6 +100,7 @@ const DraggableItem: React.FC<DraggableItemProps> = ({
         }}
       >
         <div 
+          className="slide-item-transformer"
           style={{
             transform: combinedTransform, // Apply combined transform
             transition: isPlaying ? 'opacity 0.2s, transform 0.2s' : 'transform 0.2s',

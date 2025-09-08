@@ -1,48 +1,24 @@
-export interface ImageFile {
-  id: number;
-  name: string;
-  url: string;
-  file: File;
-  width: number;
-  height: number;
-}
-
-export interface Position {
-  x: number;
-  y: number;
-}
-
 export interface Slide {
-  id: number;
-  image: ImageFile;
+  id: string;
+  src: string;
+  name: string;
   startTime: number;
   duration: number;
-  position: Position;
+  track: number;
+  position: { x: number; y: number };
   scale: number;
   rotation: number;
-  transition: TransitionType;
-  transitionDuration: number;
-  zIndex: number;
-  track: number;
-}
-
-export type TransitionType = 'none' | 'fade' | 'slide' | 'zoom' | 'flip';
-
-export interface TransitionOption {
-  value: TransitionType;
-  label: string;
+  transition: {
+    type: 'fade' | 'slide' | 'zoom' | 'flip' | 'none';
+    duration: number;
+  };
 }
 
 export interface CanvasSettings {
   aspectRatio: string;
   backgroundColor: string;
+  width: number;
+  height: number;
 }
 
-export interface SlideshowData {
-  timeline: Slide[];
-  settings: {
-    aspectRatio: string;
-    width: number;
-    fps: number;
-  };
-}
+export type TimelineTrack = Slide[];
