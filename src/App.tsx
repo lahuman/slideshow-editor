@@ -301,11 +301,13 @@ const App: React.FC = () => {
   return (
     <div className="app">
       <header className="app-header">
-        <button onClick={toggleLeftPanel} className="panel-toggle-btn">
-          <FaAngleDoubleLeft style={{ transform: isLeftPanelOpen ? 'none' : 'rotate(180deg)' }} />
-        </button>
-        <h1>슬라이드쇼 에디터</h1>
-        <div className="toolbar">
+        <div className="header-section header-left">
+          <button onClick={toggleLeftPanel} className="panel-toggle-btn">
+            <FaAngleDoubleLeft style={{ transform: isLeftPanelOpen ? 'none' : 'rotate(180deg)' }} />
+          </button>
+          <h1>슬라이드쇼 에디터</h1>
+        </div>
+        <div className="header-section toolbar">
           <button onClick={togglePlayback} className="play-btn">
             {isPlaying ? <FaPause /> : '재생'}
           </button>
@@ -316,9 +318,11 @@ const App: React.FC = () => {
             <FaDownload /> 내보내기
           </button>
         </div>
-        <button onClick={toggleRightPanel} className="panel-toggle-btn" style={{ marginLeft: 'auto' }}>
-          <FaAngleDoubleRight style={{ transform: isRightPanelOpen ? 'none' : 'rotate(180deg)' }} />
-        </button>
+        <div className="header-section header-right">
+          <button onClick={toggleRightPanel} className="panel-toggle-btn">
+            <FaAngleDoubleRight style={{ transform: isRightPanelOpen ? 'none' : 'rotate(180deg)' }} />
+          </button>
+        </div>
       </header>
 
       <div className="app-body">
