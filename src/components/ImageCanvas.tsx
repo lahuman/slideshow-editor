@@ -12,6 +12,7 @@ interface ImageCanvasProps {
   isPlaying: boolean;
   canvasSettings: CanvasSettings;
   canvasDimensions: { width: number; height: number; };
+  canvasContainerRef: React.RefObject<HTMLDivElement>;
 }
 
 const ImageCanvas = forwardRef<HTMLDivElement, ImageCanvasProps>(({
@@ -22,7 +23,8 @@ const ImageCanvas = forwardRef<HTMLDivElement, ImageCanvasProps>(({
   onSlidesUpdate,
   isPlaying,
   canvasSettings,
-  canvasDimensions
+  canvasDimensions,
+  canvasContainerRef
 }, ref) => {
 
   const slidesToRender = (
@@ -47,7 +49,7 @@ const ImageCanvas = forwardRef<HTMLDivElement, ImageCanvasProps>(({
   };
 
   return (
-    <div className="image-canvas-container">
+    <div className="image-canvas-container" ref={canvasContainerRef}>
       <div 
         ref={ref}
         className="image-canvas"

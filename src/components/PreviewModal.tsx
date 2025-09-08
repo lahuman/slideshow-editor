@@ -33,7 +33,7 @@ const PreviewModal: React.FC<PreviewModalProps> = ({ timeline, onClose, canvasSe
 
   const scaleFactor = useMemo(() => {
     if (mainCanvasDimensions.width === 0 || previewDimensions.width === 0) {
-      return 1;
+      return 0; // Prevent rendering until both dimensions are known
     }
     return previewDimensions.width / mainCanvasDimensions.width;
   }, [mainCanvasDimensions, previewDimensions]);
@@ -186,7 +186,7 @@ const PreviewModal: React.FC<PreviewModalProps> = ({ timeline, onClose, canvasSe
             background: canvasSettings.backgroundColor
           }}
         >
-          {previewDimensions.width > 0 && visibleSlides.map(slide => (
+          {visibleSlides.map(slide => (
             <div
               key={slide.id}
               className="preview-slide"

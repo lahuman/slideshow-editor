@@ -330,9 +330,10 @@ const App: React.FC = () => {
           />
         </div>
 
-        <div className="center-panel" ref={canvasContainerRef}>
+        <div className="center-panel">
           <ImageCanvas
             ref={canvasRef}
+            canvasContainerRef={canvasContainerRef}
             timeline={timeline}
             currentTime={currentTime}
             selectedSlideIds={selectedSlideIds}

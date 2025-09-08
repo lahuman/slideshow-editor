@@ -12,28 +12,31 @@
 
 /* Fullscreen Preview Styling */
 .preview-modal-overlay:fullscreen {
-  display: flex;
-  justify-content: center;
-  align-items: center;
   background-color: #000;
-}
-
-.preview-modal-overlay:fullscreen .preview-header,
-.preview-modal-overlay:fullscreen .preview-controls {
-  display: none;
 }
 
 .preview-modal-overlay:fullscreen .preview-modal {
   width: 100%;
   height: 100%;
-  max-width: 100%;
-  max-height: 100%;
   background-color: transparent;
   box-shadow: none;
+  position: relative; /* Positioning context for the canvas */
 }
 
 .preview-modal-overlay:fullscreen .preview-canvas {
-  margin: 0; /* Remove margin for perfect centering */
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  max-width: 100%;
+  max-height: 100%;
+  margin: 0;
+  /* aspect-ratio is applied inline and will constrain the size */
+}
+
+.preview-modal-overlay:fullscreen .preview-header,
+.preview-modal-overlay:fullscreen .preview-controls {
+  display: none;
 }
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
   background-color: var(--color-background-app);
