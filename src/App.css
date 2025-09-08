@@ -436,34 +436,6 @@
 }
 
 /* Preview Modal Styles */
-.preview-modal-overlay:fullscreen {
-  background-color: #000;
-}
-
-.preview-modal-overlay:fullscreen .preview-modal {
-  width: 100%;
-  height: 100%;
-  background-color: transparent;
-  box-shadow: none;
-  position: relative; /* Positioning context for the canvas */
-}
-
-.preview-modal-overlay:fullscreen .preview-canvas {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  max-width: 100%;
-  max-height: 100%;
-  margin: 0;
-  /* aspect-ratio is applied inline and will constrain the size */
-}
-
-.preview-modal-overlay:fullscreen .preview-header,
-.preview-modal-overlay:fullscreen .preview-controls {
-  display: none;
-}
-
 .preview-modal-overlay {
   position: fixed;
   top: 0;
@@ -514,6 +486,37 @@
 
 .preview-slide {
   transition: opacity 0.5s ease-in-out;
+}
+
+/* Fullscreen Preview Styling */
+.preview-modal-overlay:fullscreen {
+  background-color: #000;
+}
+
+.preview-modal-overlay:fullscreen .preview-modal {
+  width: 100%;
+  height: 100%;
+  background-color: transparent;
+  box-shadow: none;
+  position: relative; /* Positioning context for the canvas */
+}
+
+.preview-modal-overlay:fullscreen .preview-canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100vw;   /* fullscreen 모드에서 강제 */
+  height: 100vh;  /* fullscreen 모드에서 강제 */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: #000; /* 검은 배경 유지 */
+  margin: 0;
+}
+
+.preview-modal-overlay:fullscreen .preview-header,
+.preview-modal-overlay:fullscreen .preview-controls {
+  display: none;
 }
 
 .preview-controls {

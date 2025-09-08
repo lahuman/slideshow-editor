@@ -31,6 +31,19 @@ const PreviewModal: React.FC<PreviewModalProps> = ({ timeline, onClose, canvasSe
     return () => resizeObserver.disconnect();
   }, []);
 
+  useEffect(() => {
+    function handleResize() {
+      if (document.fullscreenElement) {
+        setPreviewDimensions({
+          width: window.innerWidth,
+          height: window.innerHeight
+        });
+      }
+    }
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
   const scaleFactor = useMemo(() => {
     if (mainCanvasDimensions.width === 0 || previewDimensions.width === 0) {
       return 0; // Prevent rendering until both dimensions are known
