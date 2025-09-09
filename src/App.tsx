@@ -4,7 +4,10 @@ import Timeline from './components/Timeline';
 import ImageCanvas from './components/ImageCanvas';
 import ControlPanel from './components/ControlPanel';
 import PreviewModal from './components/PreviewModal';
-import { FaPause, FaDownload, FaEye, FaAngleDoubleLeft, FaAngleDoubleRight, FaUpload } from 'react-icons/fa';
+import { 
+  FiPlay, FiPause, FiDownload, FiEye, FiUpload, 
+  FiChevronsLeft, FiChevronsRight 
+} from 'react-icons/fi';
 import { ImageFile, Slide, CanvasSettings } from './types';
 import { DragEndEvent } from '@dnd-kit/core';
 import './App.css';
@@ -115,7 +118,6 @@ const App: React.FC = () => {
     const scaleY = canvasDimensions.height / image.height;
     const scale = Math.min(scaleX, scaleY, 1);
 
-    // Calculate initial position to center the image
     const initialX = (canvasDimensions.width - (image.width * scale)) / 2;
     const initialY = (canvasDimensions.height - (image.height * scale)) / 2;
 
@@ -157,7 +159,7 @@ const App: React.FC = () => {
         image,
         startTime: earliestEndTime,
         duration: 3,
-        position: { x: initialX, y: initialY }, // Use calculated initial position
+        position: { x: initialX, y: initialY },
         scale,
         rotation: 0,
         transition: 'fade',
@@ -212,11 +214,9 @@ const App: React.FC = () => {
     const { active, delta } = event;
     const draggedId = active.id as number;
 
-    // Determine which slides to move.
     const wasSelected = selectedSlideIds.includes(draggedId);
     const idsToMove = wasSelected ? selectedSlideIds : [draggedId];
 
-    // If the dragged slide was not part of the selection, update the selection state for the UI.
     if (!wasSelected) {
       setSelectedSlideIds([draggedId]);
       setLastSelectedId(draggedId);
@@ -228,8 +228,6 @@ const App: React.FC = () => {
     setTimeline(prevTimeline => {
       const updatedTimeline = [...prevTimeline];
       
-      // Check for collisions before committing any changes
-      // Use the immediate idsToMove, not the stale selectedSlideIds from state
       const slidesToMove = updatedTimeline.filter(s => idsToMove.includes(s.id));
       
       for (const slideToMove of slidesToMove) {
@@ -238,18 +236,17 @@ const App: React.FC = () => {
         const clampedTrack = Math.max(0, Math.min(newTrack, 4));
 
         const collision = updatedTimeline.some(slide => 
-          !idsToMove.includes(slide.id) && // Don't check against other selected slides
+          !idsToMove.includes(slide.id) &&
           slide.track === clampedTrack &&
           (newStartTime < slide.startTime + slide.duration && newStartTime + slideToMove.duration > slide.startTime)
         );
 
         if (collision) {
           console.log("Collision detected! Reverting drag.");
-          return prevTimeline; // Abort update
+          return prevTimeline;
         }
       }
 
-      // If no collisions, apply changes
       return updatedTimeline.map(slide => {
         if (idsToMove.includes(slide.id)) {
           const newStartTime = Math.max(0, slide.startTime + delta.x / pixelsPerSecond);
@@ -277,22 +274,20 @@ const App: React.FC = () => {
     setIsRightPanelOpen(prev => !prev);
   };
 
-  // Helper to convert File object to Base64 Data URL
-const fileToDataURL = (file: File): Promise<string> => {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = (error) => reject(error);
-    reader.readAsDataURL(file);
-  });
-};
+  const fileToDataURL = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = (error) => reject(error);
+      reader.readAsDataURL(file);
+    });
+  };
 
-// Helper to convert Base64 Data URL back to a File object
-const dataURLtoFile = async (dataUrl: string, filename: string): Promise<File> => {
-    const res = await fetch(dataUrl);
-    const blob = await res.blob();
-    return new File([blob], filename, { type: blob.type });
-};
+  const dataURLtoFile = async (dataUrl: string, filename: string): Promise<File> => {
+      const res = await fetch(dataUrl);
+      const blob = await res.blob();
+      return new File([blob], filename, { type: blob.type });
+  };
 
   const exportSlideshow = async (): Promise<void> => {
     if (!canvasRef.current) return;
@@ -422,7 +417,6 @@ const dataURLtoFile = async (dataUrl: string, filename: string): Promise<File> =
     if (file) {
       await importSlideshow(file);
     }
-    // Reset file input to allow re-selection of the same file
     if (event.target) {
       event.target.value = '';
     }
@@ -433,18 +427,18 @@ const dataURLtoFile = async (dataUrl: string, filename: string): Promise<File> =
   return (
     <div className="app">
       <header className="app-header">
-        <div className="header-section header-left">
-          <button onClick={toggleLeftPanel} className="panel-toggle-btn">
-            <FaAngleDoubleLeft style={{ transform: isLeftPanelOpen ? 'none' : 'rotate(180deg)' }} />
+        <div className="header-section" style={{ flex: 1, justifyContent: 'flex-start' }}>
+          <button onClick={toggleLeftPanel} className="header-toggle-btn" title={isLeftPanelOpen ? "Close Library" : "Open Library"}>
+            <FiChevronsLeft style={{ transform: isLeftPanelOpen ? 'none' : 'rotate(180deg)' }} />
           </button>
-          <h1>슬라이드쇼 에디터</h1>
+          <span className="app-title">SlideFlow</span>
         </div>
         <div className="header-section toolbar">
-          <button onClick={togglePlayback} className="play-btn">
-            {isPlaying ? <FaPause /> : '재생'}
+          <button onClick={togglePlayback} title={isPlaying ? "Pause" : "Play"}>
+            {isPlaying ? <FiPause /> : <FiPlay />}
           </button>
-          <button onClick={() => setShowPreview(true)} className="preview-btn">
-            <FaEye /> 미리보기
+          <button onClick={() => setShowPreview(true)} title="Preview">
+            <FiEye />
           </button>
           <input
             type="file"
@@ -453,22 +447,24 @@ const dataURLtoFile = async (dataUrl: string, filename: string): Promise<File> =
             accept=".json"
             onChange={handleFileChange}
           />
-          <button onClick={triggerFileSelect} className="import-btn">
-            <FaUpload /> 불러오기
+          <button onClick={triggerFileSelect} title="Import Project">
+            <FiUpload />
           </button>
-          <button onClick={exportSlideshow} className="export-btn">
-            <FaDownload /> 내보내기
+          <button onClick={exportSlideshow} className="primary-action" title="Export Project">
+            <FiDownload />
+            <span>Export</span>
           </button>
         </div>
-        <div className="header-section header-right">
-          <button onClick={toggleRightPanel} className="panel-toggle-btn">
-            <FaAngleDoubleRight style={{ transform: isRightPanelOpen ? 'none' : 'rotate(180deg)' }} />
+        <div className="header-section" style={{ flex: 1, justifyContent: 'flex-end' }}>
+          <button onClick={toggleRightPanel} className="header-toggle-btn" title={isRightPanelOpen ? "Close Properties" : "Open Properties"}>
+            <FiChevronsRight style={{ transform: isRightPanelOpen ? 'none' : 'rotate(180deg)' }} />
           </button>
         </div>
       </header>
 
       <div className="app-body">
         <div className={`left-panel ${isLeftPanelOpen ? '' : 'closed'}`}>
+          <h2>Library</h2>
           <ImageLibrary
             images={images}
             onImageUpload={handleImageUpload}
@@ -489,20 +485,10 @@ const dataURLtoFile = async (dataUrl: string, filename: string): Promise<File> =
             canvasSettings={canvasSettings}
             canvasDimensions={canvasDimensions}
           />
-          
-          <Timeline
-            timeline={timeline}
-            currentTime={currentTime}
-            
-            onSlidesUpdate={updateSlides}
-            onSlidesRemove={removeSlides}
-            onSlideSelect={handleSlideSelect}
-            selectedSlideIds={selectedSlideIds}
-            onTimelineDragEnd={handleTimelineDragEnd}
-          />
         </div>
 
         <div className={`right-panel ${isRightPanelOpen ? '' : 'closed'}`}>
+          <h2>Properties</h2>
           <ControlPanel
             selectedSlides={selectedSlides}
             onSlidesUpdate={updateSlides}
@@ -510,6 +496,18 @@ const dataURLtoFile = async (dataUrl: string, filename: string): Promise<File> =
             onCanvasSettingsChange={updateCanvasSettings}
           />
         </div>
+      </div>
+
+      <div className="timeline-container">
+        <Timeline
+          timeline={timeline}
+          currentTime={currentTime}
+          onSlidesUpdate={updateSlides}
+          onSlidesRemove={removeSlides}
+          onSlideSelect={handleSlideSelect}
+          selectedSlideIds={selectedSlideIds}
+          onTimelineDragEnd={handleTimelineDragEnd}
+        />
       </div>
 
       {showPreview && (

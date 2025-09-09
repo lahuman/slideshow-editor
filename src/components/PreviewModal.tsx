@@ -1,5 +1,8 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { FaTimes, FaPlay, FaPause, FaExpand, FaCompress, FaRedo, FaStepBackward, FaStepForward } from 'react-icons/fa';
+import {
+  FiX, FiPlay, FiPause, FiMaximize, FiMinimize, 
+  FiRepeat, FiSkipBack, FiSkipForward 
+} from 'react-icons/fi';
 import { Slide, CanvasSettings } from '../types';
 
 interface PreviewModalProps {
@@ -14,14 +17,33 @@ const PreviewModal: React.FC<PreviewModalProps> = ({ timeline, onClose, canvasSe
   const [isLooping, setIsLooping] = useState<boolean>(true);
   const [currentTime, setCurrentTime] = useState<number>(0);
   const [isFullscreen, setIsFullscreen] = useState<boolean>(!!document.fullscreenElement);
-  const [previewDimensions, setPreviewDimensions] = useState({ width: 0, height: 0 });
+  
+  // 1. Initial state with fallback values
+  const [previewDimensions, setPreviewDimensions] = useState({
+    width: mainCanvasDimensions.width || 800,
+    height: mainCanvasDimensions.height || 600
+  });
+
+  const modalRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
+
+  // 2. Effect to update dimensions if ResizeObserver fails or is slow
+  useEffect(() => {
+    if (previewDimensions.width === 0 && mainCanvasDimensions.width > 0) {
+      setPreviewDimensions({
+        width: mainCanvasDimensions.width,
+        height: mainCanvasDimensions.height,
+      });
+    }
+  }, [mainCanvasDimensions, previewDimensions.width]);
 
   useEffect(() => {
     const resizeObserver = new ResizeObserver(entries => {
       if (!entries || entries.length === 0) return;
       const { width, height } = entries[0].contentRect;
-      setPreviewDimensions({ width, height });
+      if (width > 0 && height > 0) {
+        setPreviewDimensions({ width, height });
+      }
     });
 
     if (canvasRef.current) {
@@ -33,7 +55,8 @@ const PreviewModal: React.FC<PreviewModalProps> = ({ timeline, onClose, canvasSe
 
   useEffect(() => {
     function handleResize() {
-      if (document.fullscreenElement) {
+      // 3. Ensure fullscreen updates dimensions correctly
+      if (document.fullscreenElement && modalRef.current) {
         setPreviewDimensions({
           width: window.innerWidth,
           height: window.innerHeight
@@ -46,7 +69,7 @@ const PreviewModal: React.FC<PreviewModalProps> = ({ timeline, onClose, canvasSe
 
   const scaleFactor = useMemo(() => {
     if (mainCanvasDimensions.width === 0 || previewDimensions.width === 0) {
-      return 0; // Prevent rendering until both dimensions are known
+      return 0;
     }
     return previewDimensions.width / mainCanvasDimensions.width;
   }, [mainCanvasDimensions, previewDimensions]);
@@ -58,11 +81,11 @@ const PreviewModal: React.FC<PreviewModalProps> = ({ timeline, onClose, canvasSe
     const fadeOutStartTime = endTime - transitionDuration;
 
     let opacity = 0;
-    let finalTransform = `scale(${scale * scaleFactor}) rotate(${rotation}deg)`;
+    let finalTransform = `rotate(${rotation}deg)`;
     let transitionTransform = '';
 
     if (currentTime >= startTime && currentTime < endTime) {
-      opacity = 1; // Default to visible within its time range
+      opacity = 1;
       let transitionProgress = 1;
 
       if (currentTime < fadeInEndTime) { // Transitioning In
@@ -88,11 +111,12 @@ const PreviewModal: React.FC<PreviewModalProps> = ({ timeline, onClose, canvasSe
       position: 'absolute',
       left: position.x * scaleFactor,
       top: position.y * scaleFactor,
-      width: image.width,
-      height: image.height,
+      // 4. Ensure width/height is at least 1px
+      width: Math.max(1, image.width * scale * scaleFactor),
+      height: Math.max(1, image.height * scale * scaleFactor),
       opacity: Math.max(0, Math.min(1, opacity)),
-      transform: `${transitionTransform} ${finalTransform}`.trim(),
-      transformOrigin: '0 0',
+      transform: `${finalTransform} ${transitionTransform}`.trim(),
+      transformOrigin: 'center',
       zIndex,
     };
   };
@@ -105,7 +129,7 @@ const PreviewModal: React.FC<PreviewModalProps> = ({ timeline, onClose, canvasSe
     if (isPlaying && totalDuration > 0) {
       const interval = setInterval(() => {
         setCurrentTime((prev: number) => {
-          let newTime = prev + 1 / 60; // Update based on 60fps
+          let newTime = prev + 1 / 60;
           if (newTime >= totalDuration) {
             if (isLooping) {
               newTime = 0;
@@ -122,7 +146,12 @@ const PreviewModal: React.FC<PreviewModalProps> = ({ timeline, onClose, canvasSe
   }, [isPlaying, totalDuration, isLooping]);
 
   useEffect(() => {
-    const onFullscreenChange = () => setIsFullscreen(!!document.fullscreenElement);
+    const onFullscreenChange = () => {
+        setIsFullscreen(!!document.fullscreenElement);
+        if (document.fullscreenElement) {
+            setPreviewDimensions({ width: window.innerWidth, height: window.innerHeight });
+        }
+    }
     document.addEventListener('fullscreenchange', onFullscreenChange);
     return () => document.removeEventListener('fullscreenchange', onFullscreenChange);
   }, []);
@@ -165,11 +194,13 @@ const PreviewModal: React.FC<PreviewModalProps> = ({ timeline, onClose, canvasSe
         return current.startTime < earliest.startTime ? current : earliest;
       });
       setCurrentTime(earliestNextSlide.startTime);
+    } else {
+      setCurrentTime(totalDuration);
     }
   };
 
   const toggleFullscreen = () => {
-    const element = canvasRef.current?.closest('.preview-modal-overlay');
+    const element = canvasRef.current; // Target the canvas for fullscreen
     if (!element) return;
 
     if (!document.fullscreenElement) {
@@ -182,51 +213,53 @@ const PreviewModal: React.FC<PreviewModalProps> = ({ timeline, onClose, canvasSe
   };
 
   return (
-    <div className="preview-modal-overlay" onClick={onClose}>
+    <div className="preview-modal-overlay" ref={modalRef} onClick={onClose}>
       <div className="preview-modal" onClick={(e) => e.stopPropagation()}>
         <div className="preview-header">
-          <h3>미리보기</h3>
+          <h3>Preview</h3>
           <button onClick={onClose} className="close-btn">
-            <FaTimes />
+            <FiX />
           </button>
         </div>
         
-        <div 
-          className="preview-canvas"
-          ref={canvasRef}
-          style={{
-            aspectRatio: canvasSettings.aspectRatio.replace(':', ' / '),
-            background: canvasSettings.backgroundColor
-          }}
-        >
-          {visibleSlides.map(slide => (
-            <div
-              key={slide.id}
-              className="preview-slide"
-              style={getSlideStyle(slide)}
-            >
-              <img
-                src={slide.image.url}
-                alt={slide.image.name}
-                style={{
-                  width: '100%',
-                  height: '100%',
-                  objectFit: 'contain',
-                }}
-              />
-            </div>
-          ))}
+        <div className="preview-canvas">
+          <div
+            className="preview-canvas-inner"
+            ref={canvasRef}
+            style={{
+              aspectRatio: canvasSettings.aspectRatio.replace(':', ' / '),
+              background: canvasSettings.backgroundColor
+            }}
+          >
+            {visibleSlides.map(slide => (
+              <div
+                key={slide.id}
+                className="preview-slide"
+                style={getSlideStyle(slide)}
+              >
+                <img
+                  src={slide.image.url}
+                  alt={slide.image.name}
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    objectFit: 'contain',
+                  }}
+                />
+              </div>
+            ))}
+          </div>
         </div>
 
         <div className="preview-controls">
-          <button onClick={handlePrevious}>
-            <FaStepBackward />
+          <button onClick={handlePrevious} title="Previous Slide">
+            <FiSkipBack />
           </button>
-          <button onClick={togglePlayback}>
-            {isPlaying ? <FaPause /> : <FaPlay />}
+          <button onClick={togglePlayback} title={isPlaying ? "Pause" : "Play"}>
+            {isPlaying ? <FiPause /> : <FiPlay />}
           </button>
-          <button onClick={handleNext}>
-            <FaStepForward />
+          <button onClick={handleNext} title="Next Slide">
+            <FiSkipForward />
           </button>
           <div className="time-display">
             {currentTime.toFixed(1)}s / {totalDuration.toFixed(1)}s
@@ -240,11 +273,11 @@ const PreviewModal: React.FC<PreviewModalProps> = ({ timeline, onClose, canvasSe
             onChange={handleTimeSliderChange}
             className="time-slider"
           />
-          <button onClick={() => setIsLooping(prev => !prev)} style={{ color: isLooping ? 'var(--color-interactive-primary)' : 'inherit' }}>
-            <FaRedo />
+          <button onClick={() => setIsLooping(prev => !prev)} title="Toggle Loop" style={{ color: isLooping ? 'var(--color-accent)' : 'inherit' }}>
+            <FiRepeat />
           </button>
-          <button onClick={toggleFullscreen}>
-            {isFullscreen ? <FaCompress /> : <FaExpand />}
+          <button onClick={toggleFullscreen} title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}>
+            {isFullscreen ? <FiMinimize /> : <FiMaximize />}
           </button>
         </div>
       </div>
