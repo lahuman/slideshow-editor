@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Slide, TransitionOption, TransitionType, Position, CanvasSettings } from '../types';
+import type { Slide, TransitionOption, TransitionType, CanvasSettings } from '../types';
 
 interface ControlPanelProps {
   selectedSlides: Slide[];
@@ -69,7 +69,6 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
   const handlePositionChange = (axis: 'x' | 'y', value: string): void => {
     const numValue = parseInt(value);
     if (!isNaN(numValue)) {
-      const ids = selectedSlides.map(s => s.id);
       // This requires a special updater since it's a nested property
       // We update based on each slide's current position to only change one axis
       selectedSlides.forEach(slide => {
@@ -87,16 +86,7 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
     }
   };
 
-  const handleCanvasSettingChange = <T extends keyof CanvasSettings>(
-    property: T,
-    value: string,
-    parser: (val: string) => CanvasSettings[T]
-  ) => {
-    const parsedValue = parser(value);
-    if (!isNaN(parsedValue as number)) {
-      onCanvasSettingsChange({ [property]: parsedValue });
-    }
-  };
+  
 
   return (
     <div className="control-panel">

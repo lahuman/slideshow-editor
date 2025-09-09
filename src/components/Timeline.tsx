@@ -12,7 +12,7 @@ import { DraggableTimelineItem } from './DraggableTimelineItem';
 interface TimelineProps {
   timeline: Slide[];
   currentTime: number;
-  onTimeChange: (time: number) => void;
+  
   onSlidesUpdate: (slideIds: number[], updates: Partial<Slide>) => void;
   onSlidesRemove: (slideIds: number[]) => void;
   onSlideSelect: (slideId: number, meta: { shift: boolean, ctrl: boolean }) => void;
@@ -27,7 +27,7 @@ const RULER_HEIGHT = 20; // pixels
 const Timeline: React.FC<TimelineProps> = ({
   timeline,
   currentTime,
-  onTimeChange,
+  
   onSlidesUpdate,
   onSlidesRemove,
   onSlideSelect,

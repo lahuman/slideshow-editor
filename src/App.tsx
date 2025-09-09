@@ -4,8 +4,8 @@ import Timeline from './components/Timeline';
 import ImageCanvas from './components/ImageCanvas';
 import ControlPanel from './components/ControlPanel';
 import PreviewModal from './components/PreviewModal';
-import { FaPlay, FaPause, FaDownload, FaEye, FaAngleDoubleLeft, FaAngleDoubleRight } from 'react-icons/fa';
-import { ImageFile, Slide, SlideshowData, CanvasSettings } from './types';
+import { FaPause, FaDownload, FaEye, FaAngleDoubleLeft, FaAngleDoubleRight, FaUpload } from 'react-icons/fa';
+import { ImageFile, Slide, CanvasSettings } from './types';
 import { DragEndEvent } from '@dnd-kit/core';
 import './App.css';
 
@@ -22,10 +22,14 @@ const App: React.FC = () => {
   const [canvasSettings, setCanvasSettings] = useState<CanvasSettings>({
     aspectRatio: '16:9',
     backgroundColor: '#000000',
+    width: 1920,
+    height: 1080,
+    fps: 30,
   });
   const [canvasDimensions, setCanvasDimensions] = useState({ width: 0, height: 0 });
   const canvasContainerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const resizeObserver = new ResizeObserver(entries => {
@@ -273,30 +277,158 @@ const App: React.FC = () => {
     setIsRightPanelOpen(prev => !prev);
   };
 
+  // Helper to convert File object to Base64 Data URL
+const fileToDataURL = (file: File): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = (error) => reject(error);
+    reader.readAsDataURL(file);
+  });
+};
+
+// Helper to convert Base64 Data URL back to a File object
+const dataURLtoFile = async (dataUrl: string, filename: string): Promise<File> => {
+    const res = await fetch(dataUrl);
+    const blob = await res.blob();
+    return new File([blob], filename, { type: blob.type });
+};
+
   const exportSlideshow = async (): Promise<void> => {
     if (!canvasRef.current) return;
 
-    const slideshowData: SlideshowData = {
-      timeline,
-      settings: {
-        aspectRatio: canvasSettings.aspectRatio,
-        width: 1920, // Standard export width
-        fps: 30
+    try {
+      const serializableTimeline = await Promise.all(
+        timeline.map(async (slide) => {
+          if (!slide.image.file) {
+            console.warn(`Slide ${slide.id} is missing image file source and will be skipped.`);
+            return null;
+          }
+          const dataURL = await fileToDataURL(slide.image.file);
+          const serializableImage = {
+            id: slide.image.id,
+            name: slide.image.name,
+            width: slide.image.width,
+            height: slide.image.height,
+            dataURL: dataURL,
+          };
+          return {
+            ...slide,
+            image: serializableImage,
+          };
+        })
+      );
+
+      const finalTimeline = serializableTimeline.filter(Boolean);
+
+      if (finalTimeline.length !== timeline.length) {
+        alert('Some slides could not be exported because their image source was missing.');
       }
-    };
-    
-    const blob = new Blob([JSON.stringify(slideshowData, null, 2)], {
-      type: 'application/json'
-    });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'slideshow.json';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+
+      const slideshowData = {
+        timeline: finalTimeline,
+        settings: canvasSettings
+      };
+      
+      const blob = new Blob([JSON.stringify(slideshowData, null, 2)], {
+        type: 'application/json'
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'slideshow.json';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error("Failed to export slideshow:", error);
+      alert(`Failed to export slideshow: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
   };
+
+  const importSlideshow = async (file: File) => {
+    const reader = new FileReader();
+    const fileContent = await new Promise<string>((resolve, reject) => {
+      reader.onload = (e) => {
+        const text = e.target?.result;
+        if (typeof text === 'string') {
+          resolve(text);
+        } else {
+          reject(new Error('File could not be read as text.'));
+        }
+      };
+      reader.onerror = () => reject(new Error('Error reading file.'));
+      reader.readAsText(file);
+    });
+
+    try {
+      const data = JSON.parse(fileContent);
+
+      if (!data.timeline || !data.settings) {
+        throw new Error('Invalid slideshow file format.');
+      }
+
+      const newImages: ImageFile[] = [];
+      const newTimeline: Slide[] = [];
+      const imageCache = new Map<number, ImageFile>();
+
+      for (const slideData of data.timeline) {
+        let imageFile = imageCache.get(slideData.image.id);
+
+        if (!imageFile) {
+          const imageFileObject = await dataURLtoFile(slideData.image.dataURL, slideData.image.name);
+          const imageUrl = URL.createObjectURL(imageFileObject);
+
+          imageFile = {
+            id: slideData.image.id,
+            name: slideData.image.name,
+            url: imageUrl,
+            file: imageFileObject,
+            width: slideData.image.width,
+            height: slideData.image.height,
+          };
+          newImages.push(imageFile);
+          imageCache.set(imageFile.id, imageFile);
+        }
+        
+        const newSlide: Slide = {
+          ...slideData,
+          image: imageFile,
+        };
+        newTimeline.push(newSlide);
+      }
+
+      setImages(prevImages => {
+        const existingImageIds = new Set(prevImages.map(img => img.id));
+        const imagesToAdd = newImages.filter(img => !existingImageIds.has(img.id));
+        return [...prevImages, ...imagesToAdd];
+      });
+
+      setTimeline(newTimeline);
+      setCanvasSettings(data.settings);
+      setSelectedSlideIds([]);
+      setCurrentTime(0);
+      setIsPlaying(false);
+      alert('Slideshow imported successfully!');
+    } catch (error) {
+      console.error("Failed to import slideshow:", error);
+      alert(`Failed to import slideshow: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  };
+
+  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      await importSlideshow(file);
+    }
+    // Reset file input to allow re-selection of the same file
+    if (event.target) {
+      event.target.value = '';
+    }
+  };
+
+  const triggerFileSelect = () => fileInputRef.current?.click();
 
   return (
     <div className="app">
@@ -313,6 +445,16 @@ const App: React.FC = () => {
           </button>
           <button onClick={() => setShowPreview(true)} className="preview-btn">
             <FaEye /> 미리보기
+          </button>
+          <input
+            type="file"
+            ref={fileInputRef}
+            style={{ display: 'none' }}
+            accept=".json"
+            onChange={handleFileChange}
+          />
+          <button onClick={triggerFileSelect} className="import-btn">
+            <FaUpload /> 불러오기
           </button>
           <button onClick={exportSlideshow} className="export-btn">
             <FaDownload /> 내보내기
@@ -351,7 +493,7 @@ const App: React.FC = () => {
           <Timeline
             timeline={timeline}
             currentTime={currentTime}
-            onTimeChange={setCurrentTime}
+            
             onSlidesUpdate={updateSlides}
             onSlidesRemove={removeSlides}
             onSlideSelect={handleSlideSelect}

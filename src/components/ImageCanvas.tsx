@@ -12,7 +12,7 @@ interface ImageCanvasProps {
   isPlaying: boolean;
   canvasSettings: CanvasSettings;
   canvasDimensions: { width: number; height: number; };
-  canvasContainerRef: React.RefObject<HTMLDivElement>;
+  canvasContainerRef: React.RefObject<HTMLDivElement | null>;
 }
 
 const ImageCanvas = forwardRef<HTMLDivElement, ImageCanvasProps>(({
