@@ -4,6 +4,7 @@ import Timeline from './components/Timeline';
 import ImageCanvas from './components/ImageCanvas';
 import ControlPanel from './components/ControlPanel';
 import PreviewModal from './components/PreviewModal';
+import MobileWarning from './components/MobileWarning'; // 1. Import component
 import { 
   FiPlay, FiPause, FiDownload, FiEye, FiUpload, 
   FiChevronsLeft, FiChevronsRight 
@@ -22,6 +23,10 @@ const App: React.FC = () => {
   const [showPreview, setShowPreview] = useState<boolean>(false);
   const [isLeftPanelOpen, setIsLeftPanelOpen] = useState<boolean>(true);
   const [isRightPanelOpen, setIsRightPanelOpen] = useState<boolean>(true);
+  
+  // 2. State to track mobile view
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+
   const [canvasSettings, setCanvasSettings] = useState<CanvasSettings>({
     aspectRatio: '16:9',
     backgroundColor: '#000000',
@@ -33,6 +38,15 @@ const App: React.FC = () => {
   const canvasContainerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // 3. Effect to update mobile state on resize
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   useEffect(() => {
     const resizeObserver = new ResizeObserver(entries => {
@@ -426,6 +440,9 @@ const App: React.FC = () => {
 
   return (
     <div className="app">
+      {/* 4. Conditionally render the warning overlay */}
+      {isMobile && <MobileWarning />}
+
       <header className="app-header">
         <div className="header-section" style={{ flex: 1, justifyContent: 'flex-start' }}>
           <button onClick={toggleLeftPanel} className="header-toggle-btn" title={isLeftPanelOpen ? "Close Library" : "Open Library"}>
