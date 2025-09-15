@@ -542,3 +542,87 @@
   .center-panel { flex: 1; }
   .timeline-container { height: 200px; }
 }
+
+/* 녹화 관련 스타일 추가 */
+.preview-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.header-controls {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.record-btn {
+  background: #dc2626;
+  color: white;
+  border: none;
+  padding: 8px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 14px;
+  transition: background-color 0.2s;
+}
+
+.record-btn:hover:not(:disabled) {
+  background: #b91c1c;
+}
+
+.record-btn:disabled {
+  background: #6b7280;
+  cursor: not-allowed;
+}
+
+.record-btn.recording {
+  background: #dc2626;
+  animation: pulse 2s infinite;
+}
+
+.recording-indicator {
+  color: #fef2f2;
+  font-size: 12px;
+  animation: blink 1s infinite;
+}
+
+.download-btn {
+  background: #059669;
+  color: white;
+  border: none;
+  padding: 8px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.download-btn:hover {
+  background: #047857;
+}
+
+.recording-text {
+  color: #dc2626;
+  font-weight: bold;
+  margin-left: 8px;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+@keyframes blink {
+  0%, 50% { opacity: 1; }
+  51%, 100% { opacity: 0; }
+}
+
+/* 녹화 중 컨트롤 비활성화 스타일 */
+.preview-controls button:disabled,
+.preview-controls input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
