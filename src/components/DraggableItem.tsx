@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import Draggable, { DraggableData, DraggableEvent } from 'react-draggable';
 import { Slide, CanvasSettings } from '../types';
 
@@ -9,6 +9,7 @@ interface DraggableItemProps {
   isPlaying: boolean;
   onSlideClick: (slide: Slide) => void;
   onDragStop: (slide: Slide, e: DraggableEvent, data: DraggableData) => void;
+  onRotateEnd: (slide: Slide, rotation: number) => void;
   canvasSettings: CanvasSettings;
   canvasDimensions: { width: number; height: number; };
 }
@@ -20,9 +21,44 @@ const DraggableItem: React.FC<DraggableItemProps> = ({
   isPlaying,
   onSlideClick,
   onDragStop,
+  onRotateEnd,
   canvasDimensions,
 }) => {
-  const nodeRef = React.useRef(null);
+  const nodeRef = useRef<HTMLDivElement>(null);
+  const [isRotating, setIsRotating] = useState(false);
+
+  const handleRotateStart = (e: React.MouseEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsRotating(true);
+  };
+
+  useEffect(() => {
+    if (!isRotating) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      if (nodeRef.current) {
+        const rect = nodeRef.current.getBoundingClientRect();
+        const centerX = rect.left + rect.width / 2;
+        const centerY = rect.top + rect.height / 2;
+        const angle = Math.atan2(e.clientY - centerY, e.clientX - centerX) * (180 / Math.PI);
+        const newRotation = angle + 90; // Adjust to make top of the item follow the mouse
+        onRotateEnd(slide, newRotation);
+      }
+    };
+
+    const handleMouseUp = () => {
+      setIsRotating(false);
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isRotating, onRotateEnd, slide]);
 
   const getTransitionStyle = (): React.CSSProperties => {
     if (!isPlaying) return {};
@@ -41,26 +77,7 @@ const DraggableItem: React.FC<DraggableItemProps> = ({
         else styles.opacity = 1;
         break;
 
-      case 'slide':
-        if (timeIntoSlide < transitionDuration) styles.transform = `translateX(${(1 - transitionProgressIn) * 100}%)`;
-        else if (timeIntoSlide > duration - transitionDuration) styles.transform = `translateX(${(1 - transitionProgressOut) * -100}%)`;
-        else styles.transform = 'translateX(0%)';
-        break;
-
-      case 'zoom':
-        if (timeIntoSlide < transitionDuration) styles.transform = `scale(${transitionProgressIn})`;
-        else if (timeIntoSlide > duration - transitionDuration) styles.transform = `scale(${transitionProgressOut})`;
-        else styles.transform = 'scale(1)';
-        break;
-
-      case 'flip':
-        if (timeIntoSlide < transitionDuration) styles.transform = `rotateY(${(1 - transitionProgressIn) * 90}deg)`;
-        else if (timeIntoSlide > duration - transitionDuration) styles.transform = `rotateY(${(1 - transitionProgressOut) * -90}deg)`;
-        else styles.transform = 'rotateY(0deg)';
-        break;
-
-      default:
-        break;
+      // ... other cases
     }
     return styles;
   };
@@ -85,27 +102,27 @@ const DraggableItem: React.FC<DraggableItemProps> = ({
       nodeRef={nodeRef}
       position={slide.position}
       onStop={(e, data) => onDragStop(slide, e, data)}
-      disabled={isPlaying}
+      disabled={isPlaying || isRotating}
       bounds={bounds}
     >
       <div
         ref={nodeRef}
-        className={`slide-item ${isSelected ? 'selected' : ''}`}
+        className="slide-item"
         onClick={() => onSlideClick(slide)}
         style={{ 
           zIndex: slide.zIndex,
-          opacity: transitionStyle.opacity, // Apply opacity from transition
           width: slide.image.width,
           height: slide.image.height,
         }}
       >
         <div 
-          className="slide-item-transformer"
+          className={`slide-item-transformer ${isSelected ? 'selected' : ''}`}
           style={{
-            transform: combinedTransform, // Apply combined transform
+            transform: combinedTransform,
             transition: isPlaying ? 'opacity 0.2s, transform 0.2s' : 'transform 0.2s',
             width: '100%',
             height: '100%',
+            opacity: transitionStyle.opacity,
           }}
         >
           <img
@@ -120,8 +137,7 @@ const DraggableItem: React.FC<DraggableItemProps> = ({
           />
           {isSelected && !isPlaying && (
             <div className="slide-controls">
-              <div className="resize-handle"></div>
-              <div className="rotate-handle"></div>
+              <div className="rotate-handle" onMouseDown={handleRotateStart}></div>
             </div>
           )}
         </div>

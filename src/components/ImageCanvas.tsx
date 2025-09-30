@@ -48,6 +48,10 @@ const ImageCanvas = forwardRef<HTMLDivElement, ImageCanvasProps>(({
     });
   };
 
+  const handleRotateEnd = (slide: Slide, rotation: number): void => {
+    onSlidesUpdate([slide.id], { rotation });
+  };
+
   return (
     <div className="image-canvas-container" ref={canvasContainerRef}>
       <div 
@@ -69,6 +73,7 @@ const ImageCanvas = forwardRef<HTMLDivElement, ImageCanvasProps>(({
             isPlaying={isPlaying}
             onSlideClick={handleSlideClick}
             onDragStop={handleDragStop}
+            onRotateEnd={handleRotateEnd}
             canvasSettings={canvasSettings}
             canvasDimensions={canvasDimensions}
           />
