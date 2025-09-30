@@ -78,7 +78,7 @@ export const DraggableTimelineItem: React.FC<DraggableTimelineItemProps> = ({
         {...attributes} 
         {...listeners} 
         className="slide-thumbnail"
-        style={{ cursor: 'grab', height: '100%' }}
+        style={{ cursor: 'grab', height: '100%', touchAction: 'none' }}
       >
         <img src={slide.image.url} alt="" style={{ pointerEvents: 'none' }} />
       </div>
