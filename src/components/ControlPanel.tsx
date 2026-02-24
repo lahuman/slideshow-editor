@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import type { Slide, TransitionOption, TransitionType, CanvasSettings } from '../types';
+import type { Slide, TextSlide, TransitionOption, TransitionType, CanvasSettings } from '../types';
 
 interface ControlPanelProps {
   selectedSlides: Slide[];
   onSlidesUpdate: (slideIds: number[], updates: Partial<Slide>) => void;
+  selectedTextSlide: TextSlide | null;
+  onTextSlideUpdate: (updates: Partial<TextSlide>) => void;
   canvasSettings: CanvasSettings;
   onCanvasSettingsChange: (updates: Partial<CanvasSettings>) => void;
 }
@@ -26,6 +28,8 @@ const getCommonPositionValue = (items: Slide[], axis: 'x' | 'y'): number | 'mixe
 const ControlPanel: React.FC<ControlPanelProps> = ({ 
   selectedSlides, 
   onSlidesUpdate,
+  selectedTextSlide,
+  onTextSlideUpdate,
   canvasSettings,
   onCanvasSettingsChange
 }) => {
@@ -86,6 +90,18 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
     }
   };
 
+  const handleTextPositionChange = (axis: 'x' | 'y', value: string): void => {
+    if (!selectedTextSlide) return;
+    const numValue = parseInt(value, 10);
+    if (Number.isNaN(numValue)) return;
+    onTextSlideUpdate({
+      position: {
+        ...selectedTextSlide.position,
+        [axis]: numValue,
+      },
+    });
+  };
+
   
 
   return (
@@ -111,7 +127,132 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
       <hr style={{ margin: '2rem 0' }} />
 
       <h3>아이템 속성</h3>
-      {selectedSlides.length === 0 ? (
+      {selectedTextSlide ? (
+        <>
+          <p style={{marginBottom: '1rem', color: '#555'}}>텍스트 아이템 선택됨</p>
+
+          <div className="property-group">
+            <label>텍스트</label>
+            <input
+              type="text"
+              value={selectedTextSlide.text}
+              onChange={(e) => onTextSlideUpdate({ text: e.target.value })}
+            />
+          </div>
+
+          <div className="property-group">
+            <label>위치</label>
+            <div className="input-group">
+              <input
+                type="number"
+                value={selectedTextSlide.position.x}
+                onChange={(e) => handleTextPositionChange('x', e.target.value)}
+              />
+              <input
+                type="number"
+                value={selectedTextSlide.position.y}
+                onChange={(e) => handleTextPositionChange('y', e.target.value)}
+              />
+            </div>
+          </div>
+
+          <div className="property-group">
+            <label>폰트 크기</label>
+            <input
+              type="range"
+              min="10"
+              max="120"
+              step="1"
+              value={selectedTextSlide.fontSize}
+              onChange={(e) => onTextSlideUpdate({ fontSize: parseInt(e.target.value, 10) })}
+            />
+            <span>{selectedTextSlide.fontSize}px</span>
+          </div>
+
+          <div className="property-group">
+            <label>박스 폭</label>
+            <input
+              type="range"
+              min="80"
+              max="1200"
+              step="10"
+              value={selectedTextSlide.maxWidth}
+              onChange={(e) => onTextSlideUpdate({ maxWidth: parseInt(e.target.value, 10) })}
+            />
+            <span>{Math.round(selectedTextSlide.maxWidth)}px</span>
+          </div>
+
+          <div className="property-group">
+            <label>텍스트 색상</label>
+            <div className="input-group">
+              <input
+                type="color"
+                value={selectedTextSlide.color}
+                onChange={(e) => onTextSlideUpdate({ color: e.target.value })}
+                style={{ padding: 0, height: '38px' }}
+              />
+              <input
+                type="text"
+                value={selectedTextSlide.color}
+                onChange={(e) => onTextSlideUpdate({ color: e.target.value })}
+              />
+            </div>
+          </div>
+
+          <div className="property-group">
+            <label>배경 색상</label>
+            <div className="input-group">
+              <input
+                type="color"
+                value={selectedTextSlide.backgroundColor.startsWith('#') ? selectedTextSlide.backgroundColor : '#000000'}
+                onChange={(e) => onTextSlideUpdate({ backgroundColor: e.target.value })}
+                style={{ padding: 0, height: '38px' }}
+              />
+              <input
+                type="text"
+                value={selectedTextSlide.backgroundColor}
+                onChange={(e) => onTextSlideUpdate({ backgroundColor: e.target.value })}
+              />
+            </div>
+          </div>
+
+          <div className="property-group">
+            <label>정렬</label>
+            <select
+              value={selectedTextSlide.align}
+              onChange={(e) => onTextSlideUpdate({ align: e.target.value as TextSlide['align'] })}
+            >
+              <option value="left">Left</option>
+              <option value="center">Center</option>
+              <option value="right">Right</option>
+            </select>
+          </div>
+
+          <div className="property-group">
+            <label>회전</label>
+            <input
+              type="range"
+              min="0"
+              max="360"
+              value={selectedTextSlide.rotation}
+              onChange={(e) => onTextSlideUpdate({ rotation: parseInt(e.target.value, 10) })}
+            />
+            <span>{Math.round(selectedTextSlide.rotation)}°</span>
+          </div>
+
+          <div className="property-group">
+            <label>지속시간 (초)</label>
+            <input
+              type="number"
+              min="1"
+              max="100"
+              step="0.1"
+              value={selectedTextSlide.duration}
+              onChange={(e) => onTextSlideUpdate({ duration: Math.max(1, parseFloat(e.target.value) || 1) })}
+            />
+          </div>
+        </>
+      ) : selectedSlides.length === 0 ? (
         <p>타임라인에서 아이템을 선택하세요</p>
       ) : (
         <>

@@ -7,17 +7,23 @@ import {
   useSensors,
   DragEndEvent,
 } from '@dnd-kit/core';
-import { Slide } from '../types';
+import { Slide, TextSlide } from '../types';
 import { DraggableTimelineItem } from './DraggableTimelineItem';
+import { DraggableTextTimelineItem } from './DraggableTextTimelineItem';
 
 interface TimelineProps {
   timeline: Slide[];
+  textSlides: TextSlide[];
   currentTime: number;
   
   onSlidesUpdate: (slideIds: number[], updates: Partial<Slide>) => void;
   onSlidesRemove: (slideIds: number[]) => void;
+  onTextSlidesUpdate: (slideIds: number[], updates: Partial<TextSlide>) => void;
+  onTextSlidesRemove: (slideIds: number[]) => void;
   onSlideSelect: (slideId: number, meta: { shift: boolean, ctrl: boolean }) => void;
+  onTextSlideSelect: (slideId: number) => void;
   selectedSlideIds: number[];
+  selectedTextSlideId: number | null;
   onTimelineDragEnd: (event: DragEndEvent) => void;
 }
 
@@ -27,12 +33,17 @@ const RULER_HEIGHT = 20; // pixels
 
 const Timeline: React.FC<TimelineProps> = ({
   timeline,
+  textSlides,
   currentTime,
   
   onSlidesUpdate,
   onSlidesRemove,
+  onTextSlidesUpdate,
+  onTextSlidesRemove,
   onSlideSelect,
+  onTextSlideSelect,
   selectedSlideIds,
+  selectedTextSlideId,
   onTimelineDragEnd,
 }) => {
   const sensors = useSensors(
@@ -47,13 +58,17 @@ const Timeline: React.FC<TimelineProps> = ({
     })
   );
 
-  const totalDuration = Math.max(30, timeline.reduce((max, slide) => 
-    Math.max(max, slide.startTime + slide.duration), 0
-  ));
+  const totalDuration = Math.max(
+    30,
+    timeline.reduce((max, slide) => Math.max(max, slide.startTime + slide.duration), 0),
+    textSlides.reduce((max, slide) => Math.max(max, slide.startTime + slide.duration), 0)
+  );
   
-  const totalTracks = Math.max(3, timeline.reduce((max, slide) => 
-    Math.max(max, slide.track), 0
-  ) + 1);
+  const totalTracks = Math.max(
+    3,
+    timeline.reduce((max, slide) => Math.max(max, slide.track), 0) + 1,
+    textSlides.reduce((max, slide) => Math.max(max, slide.track), 0) + 1
+  );
 
   const handleSlideDurationChange = (slideId: number, newDuration: string): void => {
     const duration = parseFloat(newDuration);
@@ -70,6 +85,18 @@ const Timeline: React.FC<TimelineProps> = ({
     if (e.target === e.currentTarget) {
         onSlideSelect(0, { shift: false, ctrl: true }); // A bit of a hack to deselect all
     }
+  };
+
+  const handleTextSlideDurationChange = (slideId: number, newDuration: string): void => {
+    const duration = parseFloat(newDuration);
+    if (!isNaN(duration)) {
+      const clampedDuration = Math.max(1, Math.min(duration, 100));
+      onTextSlidesUpdate([slideId], { duration: clampedDuration });
+    }
+  };
+
+  const handleTextSlideTextChange = (slideId: number, text: string): void => {
+    onTextSlidesUpdate([slideId], { text });
   };
 
   const renderGrid = () => {
@@ -125,6 +152,19 @@ const Timeline: React.FC<TimelineProps> = ({
               onSelect={onSlideSelect}
               onRemove={() => onSlidesRemove([slide.id])}
               onDurationChange={handleSlideDurationChange}
+            />
+          ))}
+          {textSlides.map(slide => (
+            <DraggableTextTimelineItem
+              key={`text-${slide.id}`}
+              slide={slide}
+              pixelsPerSecond={PIXELS_PER_SECOND}
+              trackHeight={TRACK_HEIGHT}
+              isSelected={selectedTextSlideId === slide.id}
+              onSelect={onTextSlideSelect}
+              onRemove={() => onTextSlidesRemove([slide.id])}
+              onDurationChange={handleTextSlideDurationChange}
+              onTextChange={handleTextSlideTextChange}
             />
           ))}
         </div>

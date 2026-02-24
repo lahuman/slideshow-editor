@@ -33,6 +33,29 @@ export interface Slide {
   track: number;
 }
 
+export interface TextSlide {
+  id: number;
+  text: string;
+  startTime: number;
+  duration: number;
+  position: Position;
+  rotation: number;
+  fontSize: number;
+  color: string;
+  backgroundColor: string;
+  maxWidth: number;
+  align: 'left' | 'center' | 'right';
+  zIndex: number;
+  track: number;
+}
+
+// Library에서 관리하는 자막 템플릿 (타임라인 정보 없음)
+export interface TextTemplate {
+  id: number;
+  name: string;
+  text: string;
+}
+
 export interface CanvasSettings {
   aspectRatio: string;
   backgroundColor: string;
@@ -43,6 +66,7 @@ export interface CanvasSettings {
 
 export interface SlideshowData {
   timeline: Slide[];
+  textSlides: TextSlide[];
   settings: CanvasSettings;
 }
 
