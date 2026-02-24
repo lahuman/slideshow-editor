@@ -590,7 +590,8 @@
 
 .text-template-form input,
 .text-template-form textarea {
-  width: 100%;
+  width: calc(100% - 5px);
+  box-sizing: border-box;
   padding: 0.5rem;
   border: 1px solid var(--color-border);
   border-radius: 4px;
@@ -860,6 +861,51 @@
   border-radius: 999px;
   border-color: #dbe2e9;
   box-shadow: 0 6px 14px rgba(18, 24, 30, 0.08);
+}
+
+.toolbar {
+  background: rgba(255, 255, 255, 0.68);
+  border: 1px solid rgba(220, 228, 236, 0.9);
+  border-radius: 999px;
+  padding: 0.35rem 0.5rem;
+  gap: 0.4rem;
+}
+
+.toolbar .locale-select-wrap {
+  margin: 0 0.35rem;
+  padding: 0 0.45rem;
+  border-left: 1px solid #dbe2e9;
+  border-right: 1px solid #dbe2e9;
+}
+
+.toolbar button[title*="Import"],
+.toolbar button[title*="불러오기"],
+.toolbar button[title*="読み込"] {
+  margin-left: 0.2rem;
+}
+
+.locale-select-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.locale-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.82rem;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+.locale-select {
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  padding: 0.35rem 0.7rem;
+  background: rgba(255, 255, 255, 0.92);
+  color: var(--color-text-primary);
+  font-weight: 600;
 }
 
 .toolbar button:hover {

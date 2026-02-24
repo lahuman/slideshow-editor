@@ -6,11 +6,12 @@ import ControlPanel from './components/ControlPanel';
 import PreviewModal from './components/PreviewModal';
 import MobileWarning from './components/MobileWarning'; // 1. Import component
 import { 
-  FiPlay, FiPause, FiDownload, FiEye, FiUpload, 
+  FiPlay, FiPause, FiDownload, FiEye, FiUpload, FiGlobe,
   FiChevronsLeft, FiChevronsRight 
 } from 'react-icons/fi';
 import { ImageFile, Slide, CanvasSettings, TextSlide, SlideshowData } from './types';
 import { DragEndEvent } from '@dnd-kit/core';
+import { Locale, TranslationKey, translations } from './i18n';
 import './App.css';
 
 const App: React.FC = () => {
@@ -23,6 +24,7 @@ const App: React.FC = () => {
   const [currentTime, setCurrentTime] = useState<number>(0);
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [showPreview, setShowPreview] = useState<boolean>(false);
+  const [locale, setLocale] = useState<Locale>('ko');
   const [isLeftPanelOpen, setIsLeftPanelOpen] = useState<boolean>(true);
   const [isRightPanelOpen, setIsRightPanelOpen] = useState<boolean>(true);
   
@@ -148,6 +150,8 @@ const App: React.FC = () => {
     textSlides.reduce((max, slide) => Math.max(max, slide.startTime + slide.duration), 0)
   );
 
+  const t = (key: TranslationKey): string => translations[locale][key];
+
   const getNextPlacement = (duration: number) => {
     const allSlides = [
       ...timeline.map(slide => ({ startTime: slide.startTime, duration: slide.duration, track: slide.track })),
@@ -189,7 +193,7 @@ const App: React.FC = () => {
   };
 
   // 텍스트 슬라이드 추가 (중앙 하단에 기본 자막 박스)
-  const addTextSlide = (text = '새 자막'): void => {
+  const addTextSlide = (text?: string): void => {
     if (canvasDimensions.width === 0 || canvasDimensions.height === 0) return;
 
     const width = Math.min(400, canvasDimensions.width * 0.8);
@@ -199,7 +203,7 @@ const App: React.FC = () => {
 
     const newText: TextSlide = {
       id: Date.now(),
-      text,
+      text: text ?? t('defaultTextSlide'),
       startTime: placement.startTime,
       duration: placement.duration,
       position: { x, y },
@@ -545,7 +549,7 @@ const App: React.FC = () => {
       );
 
       if (finalTimeline.length !== timeline.length) {
-        alert('Some slides could not be exported because their image source was missing.');
+        alert(t('exportPartialWarning'));
       }
 
       const slideshowData = {
@@ -567,7 +571,7 @@ const App: React.FC = () => {
       URL.revokeObjectURL(url);
     } catch (error) {
       console.error("Failed to export slideshow:", error);
-      alert(`Failed to export slideshow: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      alert(`${t('exportFailedPrefix')} ${error instanceof Error ? error.message : t('unknownError')}`);
     }
   };
 
@@ -642,10 +646,10 @@ const App: React.FC = () => {
       setSelectedSlideIds([]);
       setCurrentTime(0);
       setIsPlaying(false);
-      alert('Slideshow imported successfully!');
+      alert(t('importSuccess'));
     } catch (error) {
       console.error("Failed to import slideshow:", error);
-      alert(`Failed to import slideshow: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      alert(`${t('importFailedPrefix')} ${error instanceof Error ? error.message : t('unknownError')}`);
     }
   };
 
@@ -664,19 +668,19 @@ const App: React.FC = () => {
   return (
     <div className="app">
       {/* 4. Conditionally render the warning overlay */}
-      {isMobile && <MobileWarning />}
+      {isMobile && <MobileWarning t={t} />}
 
       <header className="app-header">
         <div className="header-section" style={{ flex: 1, justifyContent: 'flex-start' }}>
-          <button onClick={toggleLeftPanel} className="header-toggle-btn" title={isLeftPanelOpen ? "Close Library" : "Open Library"}>
+          <button onClick={toggleLeftPanel} className="header-toggle-btn" title={isLeftPanelOpen ? t("closeLibrary") : t("openLibrary")}>
             <FiChevronsLeft style={{ transform: isLeftPanelOpen ? 'none' : 'rotate(180deg)' }} />
           </button>
-          <span className="app-title">SlideFlow</span>
+          <span className="app-title">{t('appTitle')}</span>
         </div>
         <div className="header-section toolbar">
           <button
             onClick={togglePlayback}
-            title={isPlaying ? "Pause" : "Play"}
+            title={isPlaying ? t('pause') : t('play')}
             className={`player-main-btn ${isPlaying ? 'active' : ''}`}
           >
             {isPlaying ? <FiPause /> : <FiPlay />}
@@ -688,9 +692,20 @@ const App: React.FC = () => {
             <span className="bar" />
             <span className="bar" />
           </div>
-          <button onClick={() => setShowPreview(true)} title="Preview">
+          <button onClick={() => setShowPreview(true)} title={t('preview')}>
             <FiEye />
           </button>
+          <label className="locale-select-wrap" title={t('language')}>
+            <span className="locale-label">
+              <FiGlobe />
+              {t('language')}
+            </span>
+            <select value={locale} onChange={(e) => setLocale(e.target.value as Locale)} className="locale-select">
+              <option value="en">English</option>
+              <option value="ko">한국어</option>
+              <option value="ja">日本語</option>
+            </select>
+          </label>
           <input
             type="file"
             ref={fileInputRef}
@@ -698,16 +713,16 @@ const App: React.FC = () => {
             accept=".json"
             onChange={handleFileChange}
           />
-          <button onClick={triggerFileSelect} title="Import Project">
+          <button onClick={triggerFileSelect} title={t('importProject')}>
             <FiUpload />
           </button>
-          <button onClick={exportSlideshow} className="primary-action" title="Export Project">
+          <button onClick={exportSlideshow} className="primary-action" title={t('exportProject')}>
             <FiDownload />
-            <span>Export</span>
+            <span>{t('export')}</span>
           </button>
         </div>
         <div className="header-section" style={{ flex: 1, justifyContent: 'flex-end' }}>
-          <button onClick={toggleRightPanel} className="header-toggle-btn" title={isRightPanelOpen ? "Close Properties" : "Open Properties"}>
+          <button onClick={toggleRightPanel} className="header-toggle-btn" title={isRightPanelOpen ? t("closeProperties") : t("openProperties")}>
             <FiChevronsRight style={{ transform: isRightPanelOpen ? 'none' : 'rotate(180deg)' }} />
           </button>
         </div>
@@ -715,12 +730,13 @@ const App: React.FC = () => {
 
       <div className="app-body">
         <div className={`left-panel ${isLeftPanelOpen ? '' : 'closed'}`}>
-          <h2>Library</h2>
+          <h2>{t('library')}</h2>
           <ImageLibrary
             images={images}
             onImageUpload={handleImageUpload}
             onAddToTimeline={addToTimeline}
             onCreateTextSlide={createTextSlideFromLibrary}
+            t={t}
           />
         </div>
 
@@ -744,7 +760,7 @@ const App: React.FC = () => {
         </div>
 
         <div className={`right-panel ${isRightPanelOpen ? '' : 'closed'}`}>
-          <h2>Properties</h2>
+          <h2>{t('properties')}</h2>
           <ControlPanel
             selectedSlides={selectedSlides}
             onSlidesUpdate={updateSlides}
@@ -756,6 +772,7 @@ const App: React.FC = () => {
             }}
             canvasSettings={canvasSettings}
             onCanvasSettingsChange={updateCanvasSettings}
+            t={t}
           />
         </div>
       </div>
@@ -784,6 +801,7 @@ const App: React.FC = () => {
           onClose={() => setShowPreview(false)}
           canvasSettings={canvasSettings}
           mainCanvasDimensions={canvasDimensions}
+          t={t}
         />
       )}
     </div>

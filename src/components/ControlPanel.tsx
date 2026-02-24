@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import type { Slide, TextSlide, TransitionOption, TransitionType, CanvasSettings } from '../types';
+import { TranslationKey } from '../i18n';
 
 interface ControlPanelProps {
   selectedSlides: Slide[];
@@ -8,6 +9,7 @@ interface ControlPanelProps {
   onTextSlideUpdate: (updates: Partial<TextSlide>) => void;
   canvasSettings: CanvasSettings;
   onCanvasSettingsChange: (updates: Partial<CanvasSettings>) => void;
+  t: (key: TranslationKey) => string;
 }
 
 // Generic helper to find a common value or return 'mixed'
@@ -31,7 +33,8 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
   selectedTextSlide,
   onTextSlideUpdate,
   canvasSettings,
-  onCanvasSettingsChange
+  onCanvasSettingsChange,
+  t
 }) => {
 
   const [durationInput, setDurationInput] = useState('');
@@ -56,11 +59,11 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
   }, [commonValues.duration]);
 
   const transitionOptions: TransitionOption[] = [
-    { value: 'none', label: '없음' },
-    { value: 'fade', label: '페이드' },
-    { value: 'slide', label: '슬라이드' },
-    { value: 'zoom', label: '줌' },
-    { value: 'flip', label: '플립' }
+    { value: 'none', label: t('none') },
+    { value: 'fade', label: t('fade') },
+    { value: 'slide', label: t('slide') },
+    { value: 'zoom', label: t('zoom') },
+    { value: 'flip', label: t('flip') }
   ];
 
   const handlePropertyChange = <T extends keyof Slide>(property: T, value: Slide[T]): void => {
@@ -106,9 +109,9 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
 
   return (
     <div className="control-panel">
-      <h3>캔버스 속성</h3>
+      <h3>{t('canvasProperties')}</h3>
       <div className="property-group">
-        <label>비율</label>
+        <label>{t('ratio')}</label>
         <select value={canvasSettings.aspectRatio} onChange={(e) => onCanvasSettingsChange({ aspectRatio: e.target.value })}>
           <option value="16:9">16:9</option>
           <option value="4:3">4:3</option>
@@ -117,7 +120,7 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
         </select>
       </div>
       <div className="property-group">
-        <label>배경색</label>
+        <label>{t('backgroundColor')}</label>
         <div className="input-group">
           <input type="color" value={canvasSettings.backgroundColor} onChange={(e) => onCanvasSettingsChange({ backgroundColor: e.target.value })} style={{ padding: 0, height: '38px'}} />
           <input type="text" value={canvasSettings.backgroundColor} onChange={(e) => onCanvasSettingsChange({ backgroundColor: e.target.value })} />
@@ -126,13 +129,13 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
 
       <hr style={{ margin: '2rem 0' }} />
 
-      <h3>아이템 속성</h3>
+      <h3>{t('itemProperties')}</h3>
       {selectedTextSlide ? (
         <>
-          <p style={{marginBottom: '1rem', color: '#555'}}>텍스트 아이템 선택됨</p>
+          <p style={{marginBottom: '1rem', color: '#555'}}>{t('textItemSelected')}</p>
 
           <div className="property-group">
-            <label>텍스트</label>
+            <label>{t('text')}</label>
             <input
               type="text"
               value={selectedTextSlide.text}
@@ -141,7 +144,7 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
           </div>
 
           <div className="property-group">
-            <label>위치</label>
+            <label>{t('position')}</label>
             <div className="input-group">
               <input
                 type="number"
@@ -157,7 +160,7 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
           </div>
 
           <div className="property-group">
-            <label>폰트 크기</label>
+            <label>{t('fontSize')}</label>
             <input
               type="range"
               min="10"
@@ -170,7 +173,7 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
           </div>
 
           <div className="property-group">
-            <label>박스 폭</label>
+            <label>{t('boxWidth')}</label>
             <input
               type="range"
               min="80"
@@ -183,7 +186,7 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
           </div>
 
           <div className="property-group">
-            <label>텍스트 색상</label>
+            <label>{t('textColor')}</label>
             <div className="input-group">
               <input
                 type="color"
@@ -200,7 +203,7 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
           </div>
 
           <div className="property-group">
-            <label>배경 색상</label>
+            <label>{t('textBackgroundColor')}</label>
             <div className="input-group">
               <input
                 type="color"
@@ -217,19 +220,19 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
           </div>
 
           <div className="property-group">
-            <label>정렬</label>
+            <label>{t('align')}</label>
             <select
               value={selectedTextSlide.align}
               onChange={(e) => onTextSlideUpdate({ align: e.target.value as TextSlide['align'] })}
             >
-              <option value="left">Left</option>
-              <option value="center">Center</option>
-              <option value="right">Right</option>
+              <option value="left">{t('left')}</option>
+              <option value="center">{t('center')}</option>
+              <option value="right">{t('right')}</option>
             </select>
           </div>
 
           <div className="property-group">
-            <label>회전</label>
+            <label>{t('rotation')}</label>
             <input
               type="range"
               min="0"
@@ -241,7 +244,7 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
           </div>
 
           <div className="property-group">
-            <label>지속시간 (초)</label>
+            <label>{t('durationSec')}</label>
             <input
               type="number"
               min="1"
@@ -253,53 +256,53 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
           </div>
         </>
       ) : selectedSlides.length === 0 ? (
-        <p>타임라인에서 아이템을 선택하세요</p>
+        <p>{t('selectItemHint')}</p>
       ) : (
         <>
-          <p style={{marginBottom: '1rem', color: '#555'}}>{selectedSlides.length}개 아이템 선택됨</p>
+          <p style={{marginBottom: '1rem', color: '#555'}}>{selectedSlides.length} {t('selectedItems')}</p>
           
           <div className="property-group">
-            <label>위치</label>
+            <label>{t('position')}</label>
             <div className="input-group">
-              <input type="number" value={commonValues.x === 'mixed' ? '' : commonValues.x} placeholder={commonValues.x === 'mixed' ? '혼합' : 'X'} onChange={(e) => handlePositionChange('x', e.target.value)} />
-              <input type="number" value={commonValues.y === 'mixed' ? '' : commonValues.y} placeholder={commonValues.y === 'mixed' ? '혼합' : 'Y'} onChange={(e) => handlePositionChange('y', e.target.value)} />
+              <input type="number" value={commonValues.x === 'mixed' ? '' : commonValues.x} placeholder={commonValues.x === 'mixed' ? t('mixed') : 'X'} onChange={(e) => handlePositionChange('x', e.target.value)} />
+              <input type="number" value={commonValues.y === 'mixed' ? '' : commonValues.y} placeholder={commonValues.y === 'mixed' ? t('mixed') : 'Y'} onChange={(e) => handlePositionChange('y', e.target.value)} />
             </div>
           </div>
 
           <div className="property-group">
-            <label>크기</label>
+            <label>{t('size')}</label>
             <input type="range" min="0.2" max="3" step="0.1" value={commonValues.scale === 'mixed' ? 1 : commonValues.scale} onChange={(e) => handlePropertyChange('scale', parseFloat(e.target.value))} style={{opacity: commonValues.scale === 'mixed' ? 0.5 : 1}} />
-            <span>{commonValues.scale === 'mixed' ? '혼합' : commonValues.scale.toFixed(1)}</span>
+            <span>{commonValues.scale === 'mixed' ? t('mixed') : commonValues.scale.toFixed(1)}</span>
           </div>
 
           <div className="property-group">
-            <label>회전</label>
+            <label>{t('rotation')}</label>
             <input type="range" min="0" max="360" value={commonValues.rotation === 'mixed' ? 0 : commonValues.rotation} onChange={(e) => handlePropertyChange('rotation', parseInt(e.target.value))} style={{opacity: commonValues.rotation === 'mixed' ? 0.5 : 1}} />
-            <span>{commonValues.rotation === 'mixed' ? '혼합' : `${commonValues.rotation}°`}</span>
+            <span>{commonValues.rotation === 'mixed' ? t('mixed') : `${commonValues.rotation}°`}</span>
           </div>
 
           <div className="property-group">
-            <label>지속시간 (초)</label>
-            <input type="number" min="1" max="100" step="0.1" value={durationInput} placeholder={commonValues.duration === 'mixed' ? '혼합' : ''} onChange={(e) => setDurationInput(e.target.value)} onBlur={handleDurationBlur} />
+            <label>{t('durationSec')}</label>
+            <input type="number" min="1" max="100" step="0.1" value={durationInput} placeholder={commonValues.duration === 'mixed' ? t('mixed') : ''} onChange={(e) => setDurationInput(e.target.value)} onBlur={handleDurationBlur} />
           </div>
 
           <div className="property-group">
-            <label>전환 효과</label>
+            <label>{t('transition')}</label>
             <select value={commonValues.transition === 'mixed' ? '' : commonValues.transition} onChange={(e) => handlePropertyChange('transition', e.target.value as TransitionType)} style={{ color: commonValues.transition === 'mixed' ? 'gray' : 'inherit'}}>
-              {commonValues.transition === 'mixed' && <option value="" disabled>혼합</option>}
+              {commonValues.transition === 'mixed' && <option value="" disabled>{t('mixed')}</option>}
               {transitionOptions.map(option => (<option key={option.value} value={option.value}>{option.label}</option>))}
             </select>
           </div>
 
           <div className="property-group">
-            <label>전환 시간 (초)</label>
+            <label>{t('transitionDuration')}</label>
             <input type="range" min="0.1" max="2" step="0.1" value={commonValues.transitionDuration === 'mixed' ? 0.5 : commonValues.transitionDuration} onChange={(e) => handlePropertyChange('transitionDuration', parseFloat(e.target.value))} style={{opacity: commonValues.transitionDuration === 'mixed' ? 0.5 : 1}} />
-            <span>{commonValues.transitionDuration === 'mixed' ? '혼합' : `${commonValues.transitionDuration}초`}</span>
+            <span>{commonValues.transitionDuration === 'mixed' ? t('mixed') : `${commonValues.transitionDuration}s`}</span>
           </div>
 
           <div className="property-group">
-            <label>레이어 순서</label>
-            <input type="number" min="0" value={commonValues.zIndex === 'mixed' ? '' : commonValues.zIndex} placeholder={commonValues.zIndex === 'mixed' ? '혼합' : ''} onChange={(e) => handlePropertyChange('zIndex', parseInt(e.target.value))} />
+            <label>{t('layerOrder')}</label>
+            <input type="number" min="0" value={commonValues.zIndex === 'mixed' ? '' : commonValues.zIndex} placeholder={commonValues.zIndex === 'mixed' ? t('mixed') : ''} onChange={(e) => handlePropertyChange('zIndex', parseInt(e.target.value))} />
           </div>
         </>
       )}

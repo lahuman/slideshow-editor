@@ -18,6 +18,7 @@ import {
   FiDownload,
 } from "react-icons/fi";
 import { Slide, CanvasSettings, TextSlide } from "../types";
+import { TranslationKey } from "../i18n";
 
 interface PreviewModalProps {
   timeline: Slide[];
@@ -25,6 +26,7 @@ interface PreviewModalProps {
   onClose: () => void;
   canvasSettings: CanvasSettings;
   mainCanvasDimensions: { width: number; height: number };
+  t: (key: TranslationKey) => string;
 }
 
 const PreviewModal: React.FC<PreviewModalProps> = ({
@@ -33,6 +35,7 @@ const PreviewModal: React.FC<PreviewModalProps> = ({
   onClose,
   canvasSettings,
   mainCanvasDimensions,
+  t,
 }) => {
   // 기본 상태
   const [isPlaying, setIsPlaying] = useState<boolean>(true);
@@ -718,7 +721,7 @@ const PreviewModal: React.FC<PreviewModalProps> = ({
   // 녹화 시작
   const startCanvasRecording = async () => {
     if (!imagesLoaded) {
-      alert("이미지 로드가 완료되지 않았습니다. 잠시 후 다시 시도해주세요.");
+      alert(t("loadingImages"));
       return;
     }
 
@@ -733,7 +736,7 @@ const PreviewModal: React.FC<PreviewModalProps> = ({
       const canvas = document.createElement("canvas");
       const ctx = canvas.getContext("2d");
       if (!ctx) {
-        throw new Error("캔버스 컨텍스트를 생성할 수 없습니다.");
+        throw new Error("Canvas context is not available.");
       }
 
       canvas.width = previewDimensions.width;
@@ -787,7 +790,7 @@ const PreviewModal: React.FC<PreviewModalProps> = ({
         console.error("MediaRecorder error:", e);
         setIsRecording(false);
         setRecordingCanvas(null);
-        alert("녹화 중 오류가 발생했습니다.");
+        alert(t("recording"));
       };
 
       setMediaRecorder(recorder);
@@ -803,7 +806,7 @@ const PreviewModal: React.FC<PreviewModalProps> = ({
       recorder.start(100);
     } catch (err) {
       console.error("녹화 시작 오류:", err);
-      alert("녹화를 시작할 수 없습니다: " + (err as Error).message);
+      alert(`${t("recordVideo")}: ${(err as Error).message}`);
       setIsRecording(false);
       setRecordingCanvas(null);
     }
@@ -913,18 +916,18 @@ const PreviewModal: React.FC<PreviewModalProps> = ({
     <div className="preview-modal-overlay" ref={modalRef} onClick={onClose}>
       <div className="preview-modal" onClick={(e) => e.stopPropagation()}>
         <div className="preview-header">
-          <h3>Preview</h3>
+          <h3>{t("preview")}</h3>
           <div className="header-controls">
             {!hasRecorded && !isRecording && (
               <button
                 onClick={startCanvasRecording}
                 className="record-btn"
-                title="정확한 타이밍으로 비디오 녹화"
+                title={t("recordVideo")}
                 disabled={(timeline.length === 0 && textSlides.length === 0) || !imagesLoaded}
               >
                 <FiVideo />
                 <span>
-                  {imagesLoaded ? "비디오 녹화" : "이미지 로딩 중..."}
+                  {imagesLoaded ? t("recordVideo") : t("loadingImages")}
                 </span>
               </button>
             )}
@@ -932,20 +935,20 @@ const PreviewModal: React.FC<PreviewModalProps> = ({
               <button
                 onClick={stopRecording}
                 className="record-btn recording"
-                title="녹화 중지"
+                title={t("recording")}
               >
                 <FiVideo />
-                <span className="recording-indicator">● 녹화 중...</span>
+                <span className="recording-indicator">● {t("recording")}</span>
               </button>
             )}
             {hasRecorded && recordedVideoUrl && (
               <button
                 onClick={downloadRecording}
                 className="download-btn"
-                title="녹화된 비디오 다운로드"
+                title={t("download")}
               >
                 <FiDownload />
-                <span>다운로드</span>
+                <span>{t("download")}</span>
               </button>
             )}
             <button onClick={onClose} className="close-btn">
@@ -1013,14 +1016,14 @@ const PreviewModal: React.FC<PreviewModalProps> = ({
         <div className="preview-controls">
           <button
             onClick={handlePrevious}
-            title="Previous Slide"
+            title={t("previousSlide")}
             disabled={isRecording}
           >
             <FiSkipBack />
           </button>
           <button
             onClick={togglePlayback}
-            title={isPlaying ? "Pause" : "Play"}
+            title={isPlaying ? t("pause") : t("play")}
             disabled={isRecording}
             className={`preview-play-btn ${isPlaying ? 'active' : ''}`}
           >
@@ -1034,7 +1037,7 @@ const PreviewModal: React.FC<PreviewModalProps> = ({
           </div>
           <button
             onClick={handleNext}
-            title="Next Slide"
+            title={t("nextSlide")}
             disabled={isRecording}
           >
             <FiSkipForward />
@@ -1042,7 +1045,7 @@ const PreviewModal: React.FC<PreviewModalProps> = ({
           <div className="time-display">
             {currentTime.toFixed(1)}s / {totalDuration.toFixed(1)}s
             {isRecording && (
-              <span className="recording-text">정확한 타이밍으로 녹화 중</span>
+              <span className="recording-text">{t("recordingTimingText")}</span>
             )}
           </div>
           <input
@@ -1057,7 +1060,7 @@ const PreviewModal: React.FC<PreviewModalProps> = ({
           />
           <button
             onClick={() => setIsLooping((prev) => !prev)}
-            title="Toggle Loop"
+            title={t("toggleLoop")}
             style={{ color: isLooping ? "var(--color-accent)" : "inherit" }}
             disabled={isRecording}
           >
@@ -1065,7 +1068,7 @@ const PreviewModal: React.FC<PreviewModalProps> = ({
           </button>
           <button
             onClick={toggleFullscreen}
-            title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
+            title={isFullscreen ? t("exitFullscreen") : t("enterFullscreen")}
             disabled={isRecording}
           >
             {isFullscreen ? <FiMinimize /> : <FiMaximize />}
