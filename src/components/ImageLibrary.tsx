@@ -1,19 +1,22 @@
 import React, { useRef } from 'react';
 import { FaUpload, FaPlus } from 'react-icons/fa';
 import { ImageFile } from '../types';
+import { TranslationKey } from '../i18n';
 
 interface ImageLibraryProps {
   images: ImageFile[];
   onImageUpload: (files: FileList) => void;
   onAddToTimeline: (image: ImageFile) => void;
   onCreateTextSlide: (text: string) => void;
+  t: (key: TranslationKey) => string;
 }
 
 const ImageLibrary: React.FC<ImageLibraryProps> = ({
   images,
   onImageUpload,
   onAddToTimeline,
-  onCreateTextSlide
+  onCreateTextSlide,
+  t
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [textDraft, setTextDraft] = React.useState('');
@@ -51,7 +54,7 @@ const ImageLibrary: React.FC<ImageLibraryProps> = ({
   return (
     <div className="image-library">
       <div className="library-section image-section">
-        <h3>Image Assets</h3>
+        <h3>{t('imageAssets')}</h3>
         <div 
           className="upload-area"
           onDragOver={handleDragOver}
@@ -59,7 +62,7 @@ const ImageLibrary: React.FC<ImageLibraryProps> = ({
           onClick={handleUploadClick}
         >
           <FaUpload />
-          <p>이미지를 드래그하거나 클릭하여 업로드</p>
+          <p>{t('uploadImagesHint')}</p>
           <input
             ref={fileInputRef}
             type="file"
@@ -89,10 +92,10 @@ const ImageLibrary: React.FC<ImageLibraryProps> = ({
       </div>
 
       <div className="library-section text-section">
-        <h3>Text</h3>
+        <h3>{t('text')}</h3>
         <div className="text-template-form">
           <textarea
-            placeholder="자막 텍스트를 입력하세요"
+            placeholder={t('textPlaceholder')}
             value={textDraft}
             onChange={(e) => setTextDraft(e.target.value)}
             rows={3}
@@ -103,7 +106,7 @@ const ImageLibrary: React.FC<ImageLibraryProps> = ({
             className="create-template-btn"
             disabled={!textDraft.trim()}
           >
-            Create & Add
+            {t('createAndAdd')}
           </button>
         </div>
       </div>
