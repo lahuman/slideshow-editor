@@ -9,13 +9,15 @@ import {
   FiPlay, FiPause, FiDownload, FiEye, FiUpload, 
   FiChevronsLeft, FiChevronsRight 
 } from 'react-icons/fi';
-import { ImageFile, Slide, CanvasSettings } from './types';
+import { ImageFile, Slide, CanvasSettings, TextSlide, SlideshowData } from './types';
 import { DragEndEvent } from '@dnd-kit/core';
 import './App.css';
 
 const App: React.FC = () => {
   const [images, setImages] = useState<ImageFile[]>([]);
   const [timeline, setTimeline] = useState<Slide[]>([]);
+  const [textSlides, setTextSlides] = useState<TextSlide[]>([]);
+  const [selectedTextSlideId, setSelectedTextSlideId] = useState<number | null>(null);
   const [selectedSlideIds, setSelectedSlideIds] = useState<number[]>([]);
   const [lastSelectedId, setLastSelectedId] = useState<number | null>(null);
   const [currentTime, setCurrentTime] = useState<number>(0);
@@ -38,6 +40,9 @@ const App: React.FC = () => {
   const canvasContainerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const playbackRafRef = useRef<number | null>(null);
+  const lastPlaybackTsRef = useRef<number | null>(null);
+  const prevCanvasDimensionsRef = useRef<{ width: number; height: number } | null>(null);
 
   // 3. Effect to update mobile state on resize
   useEffect(() => {
@@ -76,28 +81,177 @@ const App: React.FC = () => {
     };
   }, [canvasSettings.aspectRatio]);
 
+  useEffect(() => {
+    const prev = prevCanvasDimensionsRef.current;
+    const next = canvasDimensions;
+
+    if (!prev) {
+      prevCanvasDimensionsRef.current = next;
+      return;
+    }
+
+    if (
+      prev.width <= 0 ||
+      prev.height <= 0 ||
+      next.width <= 0 ||
+      next.height <= 0
+    ) {
+      prevCanvasDimensionsRef.current = next;
+      return;
+    }
+
+    if (prev.width === next.width && prev.height === next.height) {
+      return;
+    }
+
+    const scaleX = next.width / prev.width;
+    const scaleY = next.height / prev.height;
+    const uniformScale = Math.min(scaleX, scaleY);
+
+    setTimeline(prevTimeline =>
+      prevTimeline.map(slide => ({
+        ...slide,
+        position: {
+          x: slide.position.x * scaleX,
+          y: slide.position.y * scaleY,
+        },
+        scale: slide.scale * uniformScale,
+      }))
+    );
+
+    setTextSlides(prevTextSlides =>
+      prevTextSlides.map(slide => ({
+        ...slide,
+        position: {
+          x: slide.position.x * scaleX,
+          y: slide.position.y * scaleY,
+        },
+        maxWidth: slide.maxWidth * scaleX,
+        fontSize: Math.max(8, slide.fontSize * uniformScale),
+      }))
+    );
+
+    prevCanvasDimensionsRef.current = next;
+  }, [canvasDimensions]);
+
   const selectedSlides = useMemo(() => 
     timeline.filter(slide => selectedSlideIds.includes(slide.id)),
     [timeline, selectedSlideIds]
   );
-
-  const totalDuration = timeline.reduce((max, slide) => 
-    Math.max(max, slide.startTime + slide.duration), 0
+  const selectedTextSlide = useMemo(
+    () => textSlides.find(slide => slide.id === selectedTextSlideId) ?? null,
+    [textSlides, selectedTextSlideId]
   );
 
-  React.useEffect(() => {
-    let interval: number;
-    if (isPlaying) {
-      interval = window.setInterval(() => {
-        setCurrentTime(prevTime => {
-          if (prevTime >= totalDuration) {
-            return 0; // Loop back to the start
-          }
-          return prevTime + 0.1;
-        });
-      }, 100);
+  const totalDuration = Math.max(
+    timeline.reduce((max, slide) => Math.max(max, slide.startTime + slide.duration), 0),
+    textSlides.reduce((max, slide) => Math.max(max, slide.startTime + slide.duration), 0)
+  );
+
+  const getNextPlacement = (duration: number) => {
+    const allSlides = [
+      ...timeline.map(slide => ({ startTime: slide.startTime, duration: slide.duration, track: slide.track })),
+      ...textSlides.map(slide => ({ startTime: slide.startTime, duration: slide.duration, track: slide.track })),
+    ];
+    const trackEndTimes: { [key: number]: number } = {};
+
+    allSlides.forEach(slide => {
+      trackEndTimes[slide.track] = Math.max(trackEndTimes[slide.track] || 0, slide.startTime + slide.duration);
+    });
+
+    let targetTrack = 0;
+    let earliestEndTime = trackEndTimes[0] || 0;
+
+    for (const track in trackEndTimes) {
+      if (trackEndTimes[track] < earliestEndTime) {
+        earliestEndTime = trackEndTimes[track];
+        targetTrack = parseInt(track, 10);
+      }
     }
-    return () => window.clearInterval(interval);
+
+    if (allSlides.length > 0 && earliestEndTime > 0) {
+      let foundEmptyTrack = false;
+      for (let i = 0; i < Object.keys(trackEndTimes).length + 1; i++) {
+        if (!trackEndTimes[i]) {
+          targetTrack = i;
+          earliestEndTime = 0;
+          foundEmptyTrack = true;
+          break;
+        }
+      }
+      if (!foundEmptyTrack) {
+        targetTrack = Math.max(...Object.keys(trackEndTimes).map(Number)) + 1;
+        earliestEndTime = 0;
+      }
+    }
+
+    return { startTime: earliestEndTime, track: targetTrack, duration };
+  };
+
+  // 텍스트 슬라이드 추가 (중앙 하단에 기본 자막 박스)
+  const addTextSlide = (text = '새 자막'): void => {
+    if (canvasDimensions.width === 0 || canvasDimensions.height === 0) return;
+
+    const width = Math.min(400, canvasDimensions.width * 0.8);
+    const x = (canvasDimensions.width - width) / 2;
+    const y = canvasDimensions.height - 120;
+    const placement = getNextPlacement(3);
+
+    const newText: TextSlide = {
+      id: Date.now(),
+      text,
+      startTime: placement.startTime,
+      duration: placement.duration,
+      position: { x, y },
+      rotation: 0,
+      fontSize: 24,
+      color: '#ffffff',
+      backgroundColor: 'rgba(0, 0, 0, 0.7)',
+      maxWidth: width,
+      align: 'center',
+      zIndex: 999,
+      track: placement.track,
+    };
+
+    setTextSlides((prev) => [...prev, newText]);
+  };
+
+  React.useEffect(() => {
+    const stopLoop = () => {
+      if (playbackRafRef.current !== null) {
+        cancelAnimationFrame(playbackRafRef.current);
+        playbackRafRef.current = null;
+      }
+      lastPlaybackTsRef.current = null;
+    };
+
+    if (!isPlaying || totalDuration <= 0) {
+      stopLoop();
+      return stopLoop;
+    }
+
+    const tick = (ts: number) => {
+      if (lastPlaybackTsRef.current === null) {
+        lastPlaybackTsRef.current = ts;
+      }
+
+      const deltaSec = Math.max(0, (ts - lastPlaybackTsRef.current) / 1000);
+      lastPlaybackTsRef.current = ts;
+
+      setCurrentTime(prevTime => {
+        const nextTime = prevTime + deltaSec;
+        if (nextTime >= totalDuration) {
+          return 0;
+        }
+        return nextTime;
+      });
+
+      playbackRafRef.current = requestAnimationFrame(tick);
+    };
+
+    playbackRafRef.current = requestAnimationFrame(tick);
+
+    return stopLoop;
   }, [isPlaying, totalDuration]);
 
   const handleImageUpload = (files: FileList): void => {
@@ -135,51 +289,21 @@ const App: React.FC = () => {
     const initialX = (canvasDimensions.width - (image.width * scale)) / 2;
     const initialY = (canvasDimensions.height - (image.height * scale)) / 2;
 
+    const placement = getNextPlacement(3);
+
     setTimeline(prevTimeline => {
-      const trackEndTimes: { [key: number]: number } = {};
-      prevTimeline.forEach(slide => {
-        trackEndTimes[slide.track] = Math.max(trackEndTimes[slide.track] || 0, slide.startTime + slide.duration);
-      });
-
-      let targetTrack = 0;
-      let earliestEndTime = trackEndTimes[0] || 0;
-
-      for (const track in trackEndTimes) {
-        if (trackEndTimes[track] < earliestEndTime) {
-          earliestEndTime = trackEndTimes[track];
-          targetTrack = parseInt(track, 10);
-        }
-      }
-
-      if (prevTimeline.length > 0 && earliestEndTime > 0) {
-        let foundEmptyTrack = false;
-        for (let i = 0; i < Object.keys(trackEndTimes).length + 1; i++) {
-          if (!trackEndTimes[i]) {
-            targetTrack = i;
-            earliestEndTime = 0;
-            foundEmptyTrack = true;
-            break;
-          }
-        }
-        if (!foundEmptyTrack) {
-            const nextTrack = Math.max(...Object.keys(trackEndTimes).map(Number)) + 1;
-            targetTrack = nextTrack;
-            earliestEndTime = 0;
-        }
-      }
-
       const newSlide: Slide = {
         id: Date.now(),
         image,
-        startTime: earliestEndTime,
-        duration: 3,
+        startTime: placement.startTime,
+        duration: placement.duration,
         position: { x: initialX, y: initialY },
         scale,
         rotation: 0,
         transition: 'fade',
         transitionDuration: 0.5,
         zIndex: prevTimeline.length,
-        track: targetTrack,
+        track: placement.track,
       };
 
       return [...prevTimeline, newSlide];
@@ -194,6 +318,21 @@ const App: React.FC = () => {
     );
   };
 
+  const updateTextSlides = (slideIds: number[], updates: Partial<TextSlide>): void => {
+    setTextSlides(prev =>
+      prev.map(slide => (slideIds.includes(slide.id) ? { ...slide, ...updates } : slide))
+    );
+  };
+
+  const removeTextSlides = (slideIds: number[]): void => {
+    setTextSlides(prev => prev.filter(slide => !slideIds.includes(slide.id)));
+    setSelectedTextSlideId(prev => (prev !== null && slideIds.includes(prev) ? null : prev));
+  };
+
+  const createTextSlideFromLibrary = (text: string): void => {
+    addTextSlide(text);
+  };
+
   const updateCanvasSettings = (updates: Partial<CanvasSettings>): void => {
     setCanvasSettings(prevSettings => ({ ...prevSettings, ...updates }));
   };
@@ -204,6 +343,14 @@ const App: React.FC = () => {
   };
 
   const handleSlideSelect = (clickedId: number, { shift, ctrl }: { shift: boolean, ctrl: boolean }): void => {
+    if (clickedId === 0) {
+      setSelectedSlideIds([]);
+      setSelectedTextSlideId(null);
+      setLastSelectedId(null);
+      return;
+    }
+
+    setSelectedTextSlideId(null);
     const sortedTimeline = [...timeline].sort((a, b) => a.startTime - b.startTime);
 
     if (shift && lastSelectedId) {
@@ -222,58 +369,123 @@ const App: React.FC = () => {
       setSelectedSlideIds([clickedId]);
       setLastSelectedId(clickedId);
     }
+
+    const targetSlide = timeline.find(slide => slide.id === clickedId);
+    if (targetSlide) {
+      setCurrentTime(targetSlide.startTime);
+    }
+  };
+
+  const handleTextSlideSelect = (slideId: number): void => {
+    const targetSlide = textSlides.find(slide => slide.id === slideId);
+    if (!targetSlide) return;
+
+    setSelectedSlideIds([]);
+    setLastSelectedId(null);
+    setSelectedTextSlideId(slideId);
+    setCurrentTime(targetSlide.startTime);
   };
 
   const handleTimelineDragEnd = (event: DragEndEvent) => {
     const { active, delta } = event;
-    const draggedId = active.id as number;
+    const activeId = String(active.id);
+    const [dragType, rawId] = activeId.split('-');
+    const draggedId = Number(rawId);
 
-    const wasSelected = selectedSlideIds.includes(draggedId);
-    const idsToMove = wasSelected ? selectedSlideIds : [draggedId];
-
-    if (!wasSelected) {
-      setSelectedSlideIds([draggedId]);
-      setLastSelectedId(draggedId);
+    if (!Number.isFinite(draggedId)) {
+      return;
     }
 
     const trackHeight = 60;
     const pixelsPerSecond = 60;
+    const overlaps = (
+      aStart: number,
+      aDuration: number,
+      bStart: number,
+      bDuration: number
+    ): boolean => aStart < bStart + bDuration && aStart + aDuration > bStart;
 
-    setTimeline(prevTimeline => {
-      const updatedTimeline = [...prevTimeline];
-      
-      const slidesToMove = updatedTimeline.filter(s => idsToMove.includes(s.id));
-      
-      for (const slideToMove of slidesToMove) {
-        const newStartTime = Math.max(0, slideToMove.startTime + delta.x / pixelsPerSecond);
-        const newTrack = Math.round(slideToMove.track + delta.y / trackHeight);
-        const clampedTrack = Math.max(0, Math.min(newTrack, 4));
+    if (dragType === 'image') {
+      const wasSelected = selectedSlideIds.includes(draggedId);
+      const idsToMove = wasSelected ? selectedSlideIds : [draggedId];
 
-        const collision = updatedTimeline.some(slide => 
-          !idsToMove.includes(slide.id) &&
-          slide.track === clampedTrack &&
-          (newStartTime < slide.startTime + slide.duration && newStartTime + slideToMove.duration > slide.startTime)
-        );
-
-        if (collision) {
-          console.log("Collision detected! Reverting drag.");
-          return prevTimeline;
-        }
+      if (!wasSelected) {
+        setSelectedSlideIds([draggedId]);
+        setLastSelectedId(draggedId);
       }
 
-      return updatedTimeline.map(slide => {
-        if (idsToMove.includes(slide.id)) {
-          const newStartTime = Math.max(0, slide.startTime + delta.x / pixelsPerSecond);
-          const newTrack = Math.round(slide.track + delta.y / trackHeight);
-          return { 
-            ...slide, 
-            startTime: newStartTime,
-            track: Math.max(0, Math.min(newTrack, 4))
-          };
+      setTimeline(prevTimeline => {
+        const updatedTimeline = [...prevTimeline];
+        const slidesToMove = updatedTimeline.filter(s => idsToMove.includes(s.id));
+
+        for (const slideToMove of slidesToMove) {
+          const newStartTime = Math.max(0, slideToMove.startTime + delta.x / pixelsPerSecond);
+          const newTrack = Math.round(slideToMove.track + delta.y / trackHeight);
+          const clampedTrack = Math.max(0, Math.min(newTrack, 4));
+
+          const collisionWithImages = updatedTimeline.some(slide =>
+            !idsToMove.includes(slide.id) &&
+            slide.track === clampedTrack &&
+            overlaps(newStartTime, slideToMove.duration, slide.startTime, slide.duration)
+          );
+
+          const collisionWithText = textSlides.some(slide =>
+            slide.track === clampedTrack &&
+            overlaps(newStartTime, slideToMove.duration, slide.startTime, slide.duration)
+          );
+
+          if (collisionWithImages || collisionWithText) {
+            return prevTimeline;
+          }
         }
-        return slide;
+
+        return updatedTimeline.map(slide => {
+          if (idsToMove.includes(slide.id)) {
+            const newStartTime = Math.max(0, slide.startTime + delta.x / pixelsPerSecond);
+            const newTrack = Math.round(slide.track + delta.y / trackHeight);
+            return {
+              ...slide,
+              startTime: newStartTime,
+              track: Math.max(0, Math.min(newTrack, 4))
+            };
+          }
+          return slide;
+        });
       });
-    });
+      return;
+    }
+
+    if (dragType === 'text') {
+      setTextSlides(prevTextSlides => {
+        const movingSlide = prevTextSlides.find(slide => slide.id === draggedId);
+        if (!movingSlide) return prevTextSlides;
+
+        const newStartTime = Math.max(0, movingSlide.startTime + delta.x / pixelsPerSecond);
+        const newTrack = Math.round(movingSlide.track + delta.y / trackHeight);
+        const clampedTrack = Math.max(0, Math.min(newTrack, 4));
+
+        const collisionWithText = prevTextSlides.some(slide =>
+          slide.id !== movingSlide.id &&
+          slide.track === clampedTrack &&
+          overlaps(newStartTime, movingSlide.duration, slide.startTime, slide.duration)
+        );
+
+        const collisionWithImages = timeline.some(slide =>
+          slide.track === clampedTrack &&
+          overlaps(newStartTime, movingSlide.duration, slide.startTime, slide.duration)
+        );
+
+        if (collisionWithText || collisionWithImages) {
+          return prevTextSlides;
+        }
+
+        return prevTextSlides.map(slide =>
+          slide.id === movingSlide.id
+            ? { ...slide, startTime: newStartTime, track: clampedTrack }
+            : slide
+        );
+      });
+    }
   };
 
   const togglePlayback = (): void => {
@@ -328,7 +540,9 @@ const App: React.FC = () => {
         })
       );
 
-      const finalTimeline = serializableTimeline.filter(Boolean);
+      const finalTimeline = serializableTimeline.filter(
+        (slide): slide is NonNullable<typeof slide> => Boolean(slide)
+      );
 
       if (finalTimeline.length !== timeline.length) {
         alert('Some slides could not be exported because their image source was missing.');
@@ -336,6 +550,7 @@ const App: React.FC = () => {
 
       const slideshowData = {
         timeline: finalTimeline,
+        textSlides,
         settings: canvasSettings
       };
       
@@ -372,7 +587,7 @@ const App: React.FC = () => {
     });
 
     try {
-      const data = JSON.parse(fileContent);
+      const data: Partial<SlideshowData> & { timeline: any[] } = JSON.parse(fileContent);
 
       if (!data.timeline || !data.settings) {
         throw new Error('Invalid slideshow file format.');
@@ -416,6 +631,14 @@ const App: React.FC = () => {
 
       setTimeline(newTimeline);
       setCanvasSettings(data.settings);
+      setTextSlides(
+        Array.isArray(data.textSlides)
+          ? data.textSlides.map((slide) => ({
+              ...slide,
+              rotation: typeof slide.rotation === 'number' ? slide.rotation : 0,
+            }))
+          : []
+      );
       setSelectedSlideIds([]);
       setCurrentTime(0);
       setIsPlaying(false);
@@ -451,9 +674,20 @@ const App: React.FC = () => {
           <span className="app-title">SlideFlow</span>
         </div>
         <div className="header-section toolbar">
-          <button onClick={togglePlayback} title={isPlaying ? "Pause" : "Play"}>
+          <button
+            onClick={togglePlayback}
+            title={isPlaying ? "Pause" : "Play"}
+            className={`player-main-btn ${isPlaying ? 'active' : ''}`}
+          >
             {isPlaying ? <FiPause /> : <FiPlay />}
           </button>
+          <div className={`mini-visualizer ${isPlaying ? 'active' : ''}`} aria-hidden="true">
+            <span className="bar" />
+            <span className="bar" />
+            <span className="bar" />
+            <span className="bar" />
+            <span className="bar" />
+          </div>
           <button onClick={() => setShowPreview(true)} title="Preview">
             <FiEye />
           </button>
@@ -486,6 +720,7 @@ const App: React.FC = () => {
             images={images}
             onImageUpload={handleImageUpload}
             onAddToTimeline={addToTimeline}
+            onCreateTextSlide={createTextSlideFromLibrary}
           />
         </div>
 
@@ -494,10 +729,14 @@ const App: React.FC = () => {
             ref={canvasRef}
             canvasContainerRef={canvasContainerRef}
             timeline={timeline}
+            textSlides={textSlides}
             currentTime={currentTime}
             selectedSlideIds={selectedSlideIds}
+            selectedTextSlideId={selectedTextSlideId}
             onSlideSelect={handleSlideSelect}
+            onTextSlideSelect={handleTextSlideSelect}
             onSlidesUpdate={updateSlides}
+            onTextSlidesUpdate={updateTextSlides}
             isPlaying={isPlaying}
             canvasSettings={canvasSettings}
             canvasDimensions={canvasDimensions}
@@ -509,6 +748,12 @@ const App: React.FC = () => {
           <ControlPanel
             selectedSlides={selectedSlides}
             onSlidesUpdate={updateSlides}
+            selectedTextSlide={selectedTextSlide}
+            onTextSlideUpdate={(updates) => {
+              if (selectedTextSlideId !== null) {
+                updateTextSlides([selectedTextSlideId], updates);
+              }
+            }}
             canvasSettings={canvasSettings}
             onCanvasSettingsChange={updateCanvasSettings}
           />
@@ -518,11 +763,16 @@ const App: React.FC = () => {
       <div className="timeline-container">
         <Timeline
           timeline={timeline}
+          textSlides={textSlides}
           currentTime={currentTime}
           onSlidesUpdate={updateSlides}
           onSlidesRemove={removeSlides}
+          onTextSlidesUpdate={updateTextSlides}
+          onTextSlidesRemove={removeTextSlides}
           onSlideSelect={handleSlideSelect}
+          onTextSlideSelect={handleTextSlideSelect}
           selectedSlideIds={selectedSlideIds}
+          selectedTextSlideId={selectedTextSlideId}
           onTimelineDragEnd={handleTimelineDragEnd}
         />
       </div>
@@ -530,6 +780,7 @@ const App: React.FC = () => {
       {showPreview && (
         <PreviewModal
           timeline={timeline}
+          textSlides={textSlides}
           onClose={() => setShowPreview(false)}
           canvasSettings={canvasSettings}
           mainCanvasDimensions={canvasDimensions}

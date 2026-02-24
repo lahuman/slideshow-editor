@@ -1,21 +1,21 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap');
 
 :root {
-  font-family: 'Inter', sans-serif;
+  font-family: 'Outfit', sans-serif;
   line-height: 1.5;
   font-weight: 400;
-  color-scheme: dark;
+  color-scheme: light;
 
   /* --- Creative Studio Design System --- */
 
   /* 1. Color Palette (Dark Mode) */
-  --color-main-background: #1A1D24; /* Studio Black */
-  --color-sub-background: #2C313A;  /* Graphite */
-  --color-accent: #8A63D2;           /* Creative Violet */
-  --color-accent-hover: #9978e2;     /* Creative Violet Hover */
-  --color-text-primary: #F0F2F5;     /* Light Smoke */
-  --color-text-secondary: #a0a7b0;
-  --color-border: #40454f;
+  --color-main-background: #e9ecef;
+  --color-sub-background: #ffffff;
+  --color-accent: #1db954;
+  --color-accent-hover: #19a64c;
+  --color-text-primary: #121417;
+  --color-text-secondary: #5a6470;
+  --color-border: #d7dde4;
 
   /* Status Colors */
   --color-success: #4CAF50;
@@ -23,10 +23,10 @@
   --color-warning: #FFC107;
 
   /* Component-specific variables */
-  --color-canvas-background: #16181d;
+  --color-canvas-background: #f6f8fa;
   --color-playhead: var(--color-accent);
-  --color-checkerboard-light: #3a3f47;
-  --color-checkerboard-dark: #2C313A;
+  --color-checkerboard-light: #f0f3f6;
+  --color-checkerboard-dark: #e8edf2;
 
 
   color: var(--color-text-primary);
@@ -56,7 +56,10 @@ html, body, #root {
 
 body {
   min-width: 320px;
-  background-color: var(--color-main-background);
+  background:
+    radial-gradient(circle at 12% 10%, #ffffff 0%, rgba(255, 255, 255, 0) 35%),
+    radial-gradient(circle at 88% 85%, #d8e0ea 0%, rgba(216, 224, 234, 0) 40%),
+    var(--color-main-background);
   color: var(--color-text-primary);
   font-size: 16px; /* Base font size for rem units */
 }
@@ -76,19 +79,20 @@ small { font-size: 0.875rem; }               /* 14px */
 
 
 button {
-  border-radius: 8px;
-  border: 1px solid transparent;
+  border-radius: 10px;
+  border: 1px solid var(--color-border);
   padding: 0.6em 1.2em;
   font-size: 1em;
   font-weight: 500;
   font-family: inherit;
-  background-color: var(--color-sub-background);
+  background: linear-gradient(180deg, #ffffff 0%, #f5f7fa 100%);
   color: var(--color-text-primary);
   cursor: pointer;
   transition: all 0.25s;
 }
 button:hover {
   border-color: var(--color-accent);
+  transform: translateY(-1px);
 }
 button:focus,
 button:focus-visible {

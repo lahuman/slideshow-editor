@@ -17,10 +17,11 @@ import {
   FiVideo,
   FiDownload,
 } from "react-icons/fi";
-import { Slide, CanvasSettings } from "../types";
+import { Slide, CanvasSettings, TextSlide } from "../types";
 
 interface PreviewModalProps {
   timeline: Slide[];
+  textSlides: TextSlide[];
   onClose: () => void;
   canvasSettings: CanvasSettings;
   mainCanvasDimensions: { width: number; height: number };
@@ -28,6 +29,7 @@ interface PreviewModalProps {
 
 const PreviewModal: React.FC<PreviewModalProps> = ({
   timeline,
+  textSlides,
   onClose,
   canvasSettings,
   mainCanvasDimensions,
@@ -64,6 +66,7 @@ const PreviewModal: React.FC<PreviewModalProps> = ({
 
   const modalRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
+  const previewContainerRef = useRef<HTMLDivElement>(null);
   const recordedChunksRef = useRef<Blob[]>([]);
 
   // rAF 제어
@@ -71,22 +74,76 @@ const PreviewModal: React.FC<PreviewModalProps> = ({
   const lastTsRef = useRef<number | null>(null);
   const playingRef = useRef<boolean>(false);
   const recordingTimeRef = useRef<number>(0); // 녹화용 시간 추적
+  const TIME_EPSILON = 0.0001;
+
+  const isActiveAtTime = useCallback((time: number, startTime: number, duration: number): boolean => {
+    const endTime = startTime + duration;
+    return time + TIME_EPSILON >= startTime && time < endTime - TIME_EPSILON;
+  }, []);
 
   // 총 길이
   const totalDuration = useMemo(
     () =>
-      timeline.reduce(
-        (acc, slide) => Math.max(acc, slide.startTime + slide.duration),
-        0
+      Math.max(
+        timeline.reduce(
+          (acc, slide) => Math.max(acc, slide.startTime + slide.duration),
+          0
+        ),
+        textSlides.reduce(
+          (acc, slide) => Math.max(acc, slide.startTime + slide.duration),
+          0
+        )
       ),
-    [timeline]
+    [timeline, textSlides]
   );
 
-  // 스케일 팩터
-  const scaleFactor = useMemo(() => {
-    if (mainCanvasDimensions.width === 0 || previewDimensions.width === 0)
-      return 0;
-    return previewDimensions.width / mainCanvasDimensions.width;
+  const getAspectRatioValue = useCallback(() => {
+    const [w, h] = canvasSettings.aspectRatio.split(":").map(Number);
+    if (!w || !h) return 16 / 9;
+    return w / h;
+  }, [canvasSettings.aspectRatio]);
+
+  const fitToAspect = useCallback(
+    (availableWidth: number, availableHeight: number) => {
+      const ratio = getAspectRatioValue();
+      if (availableWidth <= 0 || availableHeight <= 0) {
+        return { width: 0, height: 0 };
+      }
+
+      let width = availableWidth;
+      let height = width / ratio;
+      if (height > availableHeight) {
+        height = availableHeight;
+        width = height * ratio;
+      }
+
+      return { width, height };
+    },
+    [getAspectRatioValue]
+  );
+
+  // 메인 캔버스 좌표계를 미리보기에 매핑 (단일 scale + 중앙 offset)
+  const renderTransform = useMemo(() => {
+    if (
+      mainCanvasDimensions.width === 0 ||
+      mainCanvasDimensions.height === 0 ||
+      previewDimensions.width === 0 ||
+      previewDimensions.height === 0
+    ) {
+      return { scale: 0, offsetX: 0, offsetY: 0 };
+    }
+    const scale = Math.min(
+      previewDimensions.width / mainCanvasDimensions.width,
+      previewDimensions.height / mainCanvasDimensions.height
+    );
+    const renderedWidth = mainCanvasDimensions.width * scale;
+    const renderedHeight = mainCanvasDimensions.height * scale;
+
+    return {
+      scale,
+      offsetX: (previewDimensions.width - renderedWidth) / 2,
+      offsetY: (previewDimensions.height - renderedHeight) / 2,
+    };
   }, [mainCanvasDimensions, previewDimensions]);
 
   // 지원되는 MIME 타입 확인 함수
@@ -143,18 +200,22 @@ const PreviewModal: React.FC<PreviewModalProps> = ({
 
   useEffect(() => {
     setImagesLoaded(false);
-    if (timeline.length > 0) preloadImages();
+    if (timeline.length > 0) {
+      preloadImages();
+    } else {
+      setImageCache(new Map());
+      setImagesLoaded(true);
+    }
   }, [timeline, preloadImages]);
 
   // 리사이즈 감시
   useEffect(() => {
     if (previewDimensions.width === 0 && mainCanvasDimensions.width > 0) {
-      setPreviewDimensions({
-        width: mainCanvasDimensions.width,
-        height: mainCanvasDimensions.height,
-      });
+      setPreviewDimensions(
+        fitToAspect(mainCanvasDimensions.width, mainCanvasDimensions.height)
+      );
     }
-  }, [mainCanvasDimensions, previewDimensions.width]);
+  }, [fitToAspect, mainCanvasDimensions, previewDimensions.width]);
 
   useEffect(() => {
     const resizeObserver = new ResizeObserver((entries) => {
@@ -162,31 +223,51 @@ const PreviewModal: React.FC<PreviewModalProps> = ({
       const entry = entries[0];
       const { width, height } = entry.contentRect;
       if (width > 0 && height > 0) {
-        setPreviewDimensions({ width, height });
+        setPreviewDimensions(fitToAspect(width, height));
       }
     });
 
-    if (canvasRef.current) {
-      resizeObserver.observe(canvasRef.current);
+    if (previewContainerRef.current) {
+      resizeObserver.observe(previewContainerRef.current);
     }
 
     return () => resizeObserver.disconnect();
-  }, []);
+  }, [fitToAspect]);
 
   useEffect(() => {
     const onFullscreenChange = () => {
       setIsFullscreen(!!document.fullscreenElement);
       if (document.fullscreenElement) {
-        setPreviewDimensions({
-          width: window.innerWidth,
-          height: window.innerHeight,
-        });
+        const updateAfterEnter = () => {
+          if (!previewContainerRef.current) return;
+          const rect = previewContainerRef.current.getBoundingClientRect();
+          const width = Math.max(window.innerWidth, rect.width);
+          const height = Math.max(window.innerHeight, rect.height);
+          setPreviewDimensions(fitToAspect(width, height));
+        };
+        requestAnimationFrame(() => requestAnimationFrame(updateAfterEnter));
       }
     };
     document.addEventListener("fullscreenchange", onFullscreenChange);
     return () =>
       document.removeEventListener("fullscreenchange", onFullscreenChange);
-  }, []);
+  }, [fitToAspect]);
+
+  useEffect(() => {
+    if (!isFullscreen) return;
+
+    const onResize = () => {
+      if (!previewContainerRef.current) return;
+      const rect = previewContainerRef.current.getBoundingClientRect();
+      const width = Math.max(window.innerWidth, rect.width);
+      const height = Math.max(window.innerHeight, rect.height);
+      setPreviewDimensions(fitToAspect(width, height));
+    };
+
+    onResize();
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, [isFullscreen, fitToAspect]);
 
   // 스타일 계산 함수 - time 파라미터 추가
   const getSlideStyleAtTime = useCallback(
@@ -210,7 +291,7 @@ const PreviewModal: React.FC<PreviewModalProps> = ({
       let finalTransform = `rotate(${rotation}deg)`;
       let transitionTransform = "";
 
-      if (time >= startTime && time < endTime) {
+      if (isActiveAtTime(time, startTime, duration)) {
         opacity = 1;
         let transitionProgress = 1;
 
@@ -259,17 +340,17 @@ const PreviewModal: React.FC<PreviewModalProps> = ({
 
       return {
         position: "absolute",
-        left: position.x * scaleFactor,
-        top: position.y * scaleFactor,
-        width: Math.max(1, image.width * scale * scaleFactor),
-        height: Math.max(1, image.height * scale * scaleFactor),
+        left: renderTransform.offsetX + position.x * renderTransform.scale,
+        top: renderTransform.offsetY + position.y * renderTransform.scale,
+        width: Math.max(1, image.width * scale * renderTransform.scale),
+        height: Math.max(1, image.height * scale * renderTransform.scale),
         opacity: Math.max(0, Math.min(1, opacity)),
         transform: `${finalTransform} ${transitionTransform}`.trim(),
         transformOrigin: "center",
         zIndex,
       };
     },
-    [scaleFactor]
+    [isActiveAtTime, renderTransform]
   );
 
   // 기존 getSlideStyle (currentTime 사용)
@@ -278,16 +359,59 @@ const PreviewModal: React.FC<PreviewModalProps> = ({
     [getSlideStyleAtTime, currentTime]
   );
 
+  const getTextSlideStyleAtTime = useCallback(
+    (slide: TextSlide, time: number): React.CSSProperties => {
+      const isVisible = isActiveAtTime(time, slide.startTime, slide.duration);
+      if (!isVisible) {
+        return { display: "none" };
+      }
+
+      return {
+        position: "absolute",
+        left: renderTransform.offsetX + slide.position.x * renderTransform.scale,
+        top: renderTransform.offsetY + slide.position.y * renderTransform.scale,
+        maxWidth: Math.max(1, slide.maxWidth * renderTransform.scale),
+        zIndex: 999,
+        fontSize: Math.max(8, slide.fontSize * renderTransform.scale),
+        color: slide.color,
+        backgroundColor: slide.backgroundColor,
+        padding: `${Math.max(4, 8 * renderTransform.scale)}px ${Math.max(6, 12 * renderTransform.scale)}px`,
+        borderRadius: Math.max(2, 6 * renderTransform.scale),
+        textAlign: slide.align,
+        whiteSpace: "pre-wrap",
+        wordBreak: "break-word",
+        lineHeight: 1.2,
+        transform: `rotate(${slide.rotation}deg)`,
+        transformOrigin: "center",
+      };
+    },
+    [isActiveAtTime, renderTransform]
+  );
+
+  const getTextSlideStyle = useCallback(
+    (slide: TextSlide) => getTextSlideStyleAtTime(slide, currentTime),
+    [getTextSlideStyleAtTime, currentTime]
+  );
+
   // 현재 보이는 슬라이드
   const visibleSlides = useMemo(
     () =>
       timeline
         .filter((slide) => {
-          const endTime = slide.startTime + slide.duration;
-          return currentTime >= slide.startTime && currentTime < endTime;
+          return isActiveAtTime(currentTime, slide.startTime, slide.duration);
         })
         .sort((a, b) => a.zIndex - b.zIndex),
-    [timeline, currentTime]
+    [timeline, currentTime, isActiveAtTime]
+  );
+
+  const visibleTextSlides = useMemo(
+    () =>
+      textSlides
+        .filter((slide) => {
+          return isActiveAtTime(currentTime, slide.startTime, slide.duration);
+        })
+        .sort((a, b) => a.zIndex - b.zIndex),
+    [textSlides, currentTime, isActiveAtTime]
   );
 
   // 특정 시간의 보이는 슬라이드
@@ -295,12 +419,22 @@ const PreviewModal: React.FC<PreviewModalProps> = ({
     (time: number) => {
       return timeline
         .filter((slide) => {
-          const endTime = slide.startTime + slide.duration;
-          return time >= slide.startTime && time < endTime;
+          return isActiveAtTime(time, slide.startTime, slide.duration);
         })
         .sort((a, b) => a.zIndex - b.zIndex);
     },
-    [timeline]
+    [timeline, isActiveAtTime]
+  );
+
+  const getVisibleTextSlidesAtTime = useCallback(
+    (time: number) => {
+      return textSlides
+        .filter((slide) => {
+          return isActiveAtTime(time, slide.startTime, slide.duration);
+        })
+        .sort((a, b) => a.zIndex - b.zIndex);
+    },
+    [textSlides, isActiveAtTime]
   );
 
   // 캔버스에 특정 시간의 프레임 그리기
@@ -318,43 +452,161 @@ const PreviewModal: React.FC<PreviewModalProps> = ({
 
       // 해당 시간의 보이는 슬라이드들
       const slidesAtTime = getVisibleSlidesAtTime(time);
+      const textSlidesAtTime = getVisibleTextSlidesAtTime(time);
+      const layers = [
+        ...slidesAtTime.map((slide) => ({ type: "image" as const, zIndex: slide.zIndex, slide })),
+        ...textSlidesAtTime.map((slide) => ({ type: "text" as const, zIndex: 999, slide })),
+      ].sort((a, b) => a.zIndex - b.zIndex);
 
-      for (const slide of slidesAtTime) {
-        const img = imageCache.get(slide.image.url);
-        if (!img || !img.complete) continue;
+      const wrapLines = (ctx2d: CanvasRenderingContext2D, text: string, maxLineWidth: number): string[] => {
+        const paragraphs = text.split('\n');
+        const wrapped: string[] = [];
 
-        const style = getSlideStyleAtTime(slide, time);
+        for (const paragraph of paragraphs) {
+          if (paragraph === '') {
+            wrapped.push('');
+            continue;
+          }
+
+          const tokens = paragraph.split(/(\s+)/).filter(Boolean);
+          let currentLine = '';
+
+          const pushOrSplitToken = (token: string) => {
+            if (ctx2d.measureText(token).width <= maxLineWidth) {
+              if (!currentLine) {
+                currentLine = token;
+              } else {
+                const next = `${currentLine}${token}`;
+                if (ctx2d.measureText(next).width <= maxLineWidth) {
+                  currentLine = next;
+                } else {
+                  wrapped.push(currentLine.trimEnd());
+                  currentLine = token.trimStart();
+                }
+              }
+              return;
+            }
+
+            // Long token fallback: split by character.
+            let chunk = '';
+            for (const ch of token) {
+              const nextChunk = `${chunk}${ch}`;
+              if (ctx2d.measureText(nextChunk).width <= maxLineWidth || chunk === '') {
+                chunk = nextChunk;
+              } else {
+                if (currentLine) {
+                  wrapped.push(currentLine.trimEnd());
+                  currentLine = '';
+                }
+                wrapped.push(chunk);
+                chunk = ch;
+              }
+            }
+            if (chunk) {
+              if (!currentLine) {
+                currentLine = chunk;
+              } else if (ctx2d.measureText(`${currentLine}${chunk}`).width <= maxLineWidth) {
+                currentLine = `${currentLine}${chunk}`;
+              } else {
+                wrapped.push(currentLine.trimEnd());
+                currentLine = chunk;
+              }
+            }
+          };
+
+          for (const token of tokens) {
+            pushOrSplitToken(token);
+          }
+          if (currentLine) {
+            wrapped.push(currentLine.trimEnd());
+          }
+        }
+
+        return wrapped.length > 0 ? wrapped : [''];
+      };
+
+      for (const layer of layers) {
+        if (layer.type === "image") {
+          const slide = layer.slide;
+          const img = imageCache.get(slide.image.url);
+          if (!img || !img.complete) continue;
+
+          const style = getSlideStyleAtTime(slide, time);
+          const left = Number(style.left) || 0;
+          const top = Number(style.top) || 0;
+          const width = Number(style.width) || 0;
+          const height = Number(style.height) || 0;
+          const opacity = Number(style.opacity ?? 1);
+
+          if (width <= 0 || height <= 0 || opacity <= 0) continue;
+
+          ctx.save();
+          ctx.globalAlpha = opacity;
+
+          const centerX = left + width / 2;
+          const centerY = top + height / 2;
+          ctx.translate(centerX, centerY);
+
+          const transform = `${style.transform ?? ""}`;
+          const rotMatch = transform.match(/rotate\(([-\d.]+)deg\)/);
+          if (rotMatch) {
+            const deg = parseFloat(rotMatch[1]);
+            ctx.rotate((deg * Math.PI) / 180);
+          }
+
+          try {
+            ctx.imageSmoothingEnabled = true;
+            ctx.imageSmoothingQuality = "high";
+            ctx.drawImage(img, -width / 2, -height / 2, width, height);
+          } catch (error) {
+            console.error("Error drawing image to canvas:", error);
+          }
+
+          ctx.restore();
+          continue;
+        }
+
+        const textSlide = layer.slide;
+        const style = getTextSlideStyleAtTime(textSlide, time);
         const left = Number(style.left) || 0;
         const top = Number(style.top) || 0;
-        const width = Number(style.width) || 0;
-        const height = Number(style.height) || 0;
-        const opacity = Number(style.opacity ?? 1);
-
-        if (width <= 0 || height <= 0 || opacity <= 0) continue;
+        const maxWidth = Number(style.maxWidth) || 0;
+        const fontSize = Number(style.fontSize) || 16;
+        const uniformScale = renderTransform.scale;
+        const paddingY = Math.max(4, 8 * uniformScale);
+        const paddingX = Math.max(6, 12 * uniformScale);
+        const lineHeight = fontSize * 1.2;
+        const textMaxWidth = Math.max(1, maxWidth - paddingX * 2);
 
         ctx.save();
-        ctx.globalAlpha = opacity;
+        ctx.font = `${fontSize}px system-ui`;
+        ctx.textBaseline = "top";
+        ctx.fillStyle = textSlide.color;
+        const lines = wrapLines(ctx, textSlide.text, textMaxWidth);
 
-        // 회전 적용
-        const centerX = left + width / 2;
-        const centerY = top + height / 2;
+        const boxHeight = lines.length * lineHeight + paddingY * 2;
+        const localLeft = -maxWidth / 2;
+        const localTop = -boxHeight / 2;
+        const centerX = left + maxWidth / 2;
+        const centerY = top + boxHeight / 2;
+
         ctx.translate(centerX, centerY);
+        ctx.rotate((textSlide.rotation * Math.PI) / 180);
 
-        const transform = `${style.transform ?? ""}`;
-        const rotMatch = transform.match(/rotate\(([-\d.]+)deg\)/);
-        if (rotMatch) {
-          const deg = parseFloat(rotMatch[1]);
-          ctx.rotate((deg * Math.PI) / 180);
-        }
+        ctx.fillStyle = textSlide.backgroundColor;
+        ctx.fillRect(localLeft, localTop, maxWidth, boxHeight);
 
-        try {
-          ctx.imageSmoothingEnabled = true;
-          ctx.imageSmoothingQuality = "high";
-          ctx.drawImage(img, -width / 2, -height / 2, width, height);
-        } catch (error) {
-          console.error("Error drawing image to canvas:", error);
-        }
-
+        ctx.fillStyle = textSlide.color;
+        lines.forEach((line, idx) => {
+          const lineWidth = ctx.measureText(line).width;
+          let x = localLeft + paddingX;
+          if (textSlide.align === "center") {
+            x = localLeft + (maxWidth - lineWidth) / 2;
+          } else if (textSlide.align === "right") {
+            x = localLeft + maxWidth - paddingX - lineWidth;
+          }
+          ctx.fillText(line, x, localTop + paddingY + idx * lineHeight);
+        });
         ctx.restore();
       }
     },
@@ -364,6 +616,9 @@ const PreviewModal: React.FC<PreviewModalProps> = ({
       imageCache,
       getSlideStyleAtTime,
       getVisibleSlidesAtTime,
+      getVisibleTextSlidesAtTime,
+      getTextSlideStyleAtTime,
+      renderTransform,
       canvasSettings.backgroundColor,
     ]
   );
@@ -602,9 +857,8 @@ const PreviewModal: React.FC<PreviewModalProps> = ({
 
   const handlePrevious = () => {
     if (isRecording) return;
-    const previousSlides = timeline.filter(
-      (slide) => slide.startTime < currentTime
-    );
+    const allStarts = [...timeline, ...textSlides];
+    const previousSlides = allStarts.filter((slide) => slide.startTime < currentTime);
     if (previousSlides.length > 0) {
       const latestPreviousSlide = previousSlides.reduce((latest, current) =>
         current.startTime > latest.startTime ? current : latest
@@ -617,9 +871,8 @@ const PreviewModal: React.FC<PreviewModalProps> = ({
 
   const handleNext = () => {
     if (isRecording) return;
-    const nextSlides = timeline.filter(
-      (slide) => slide.startTime > currentTime
-    );
+    const allStarts = [...timeline, ...textSlides];
+    const nextSlides = allStarts.filter((slide) => slide.startTime > currentTime);
     if (nextSlides.length > 0) {
       const earliestNextSlide = nextSlides.reduce((earliest, current) =>
         current.startTime < earliest.startTime ? current : earliest
@@ -632,7 +885,7 @@ const PreviewModal: React.FC<PreviewModalProps> = ({
 
   const toggleFullscreen = () => {
     if (isRecording) return;
-    const element = canvasRef.current;
+    const element = previewContainerRef.current;
     if (!element) return;
 
     if (!document.fullscreenElement) {
@@ -667,7 +920,7 @@ const PreviewModal: React.FC<PreviewModalProps> = ({
                 onClick={startCanvasRecording}
                 className="record-btn"
                 title="정확한 타이밍으로 비디오 녹화"
-                disabled={timeline.length === 0 || !imagesLoaded}
+                disabled={(timeline.length === 0 && textSlides.length === 0) || !imagesLoaded}
               >
                 <FiVideo />
                 <span>
@@ -703,9 +956,15 @@ const PreviewModal: React.FC<PreviewModalProps> = ({
 
         <div className="preview-canvas">
           <div
+            ref={previewContainerRef}
+            className="preview-canvas-viewport"
+          >
+            <div
             className="preview-canvas-inner"
             ref={canvasRef}
             style={{
+              width: `${previewDimensions.width}px`,
+              height: `${previewDimensions.height}px`,
               aspectRatio: canvasSettings.aspectRatio.replace(":", " / "),
               background: canvasSettings.backgroundColor,
             }}
@@ -738,6 +997,16 @@ const PreviewModal: React.FC<PreviewModalProps> = ({
                 </div>
               );
             })}
+            {visibleTextSlides.map((slide) => (
+              <div
+                key={`text-${slide.id}`}
+                className="text-slide-box"
+                style={getTextSlideStyle(slide)}
+              >
+                {slide.text}
+              </div>
+            ))}
+            </div>
           </div>
         </div>
 
@@ -753,9 +1022,16 @@ const PreviewModal: React.FC<PreviewModalProps> = ({
             onClick={togglePlayback}
             title={isPlaying ? "Pause" : "Play"}
             disabled={isRecording}
+            className={`preview-play-btn ${isPlaying ? 'active' : ''}`}
           >
             {isPlaying ? <FiPause /> : <FiPlay />}
           </button>
+          <div className={`mini-visualizer preview ${isPlaying ? 'active' : ''}`} aria-hidden="true">
+            <span className="bar" />
+            <span className="bar" />
+            <span className="bar" />
+            <span className="bar" />
+          </div>
           <button
             onClick={handleNext}
             title="Next Slide"

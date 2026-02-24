@@ -1,20 +1,27 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useDraggable } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
 import { FaTrash } from 'react-icons/fa';
-import { Slide } from '../types';
+import { TextSlide } from '../types';
 
-interface DraggableTimelineItemProps {
-  slide: Slide;
-  pixelsPerSecond: number; 
+interface DraggableTextTimelineItemProps {
+  slide: TextSlide;
+  pixelsPerSecond: number;
   trackHeight: number;
   isSelected: boolean;
-  onSelect: (slideId: number, meta: { shift: boolean, ctrl: boolean }) => void;
+  onSelect: (slideId: number) => void;
   onRemove: (slideId: number) => void;
   onDurationChange: (slideId: number, newDuration: string) => void;
+  onTextChange: (slideId: number, text: string) => void;
 }
 
-export const DraggableTimelineItem: React.FC<DraggableTimelineItemProps> = ({
+const shortenText = (text: string): string => {
+  const trimmed = text.trim().replace(/\s+/g, ' ');
+  if (trimmed.length <= 24) return trimmed;
+  return `${trimmed.slice(0, 24)}...`;
+};
+
+export const DraggableTextTimelineItem: React.FC<DraggableTextTimelineItemProps> = ({
   slide,
   pixelsPerSecond,
   trackHeight,
@@ -22,6 +29,7 @@ export const DraggableTimelineItem: React.FC<DraggableTimelineItemProps> = ({
   onSelect,
   onRemove,
   onDurationChange,
+  onTextChange,
 }) => {
   const {
     attributes,
@@ -29,7 +37,7 @@ export const DraggableTimelineItem: React.FC<DraggableTimelineItemProps> = ({
     setNodeRef,
     transform,
     isDragging,
-  } = useDraggable({ id: `image-${slide.id}` });
+  } = useDraggable({ id: `text-${slide.id}` });
 
   const [inputValue, setInputValue] = useState(slide.duration.toString());
 
@@ -43,10 +51,20 @@ export const DraggableTimelineItem: React.FC<DraggableTimelineItemProps> = ({
     const value = parseFloat(inputValue);
     if (isNaN(value) || inputValue.trim() === '') {
       setInputValue(slide.duration.toString());
-    } else {
-      const clampedValue = Math.max(1, Math.min(value, 100));
+      return;
+    }
+
+    const clampedValue = Math.max(1, Math.min(value, 100));
+    onDurationChange(slide.id, clampedValue.toString());
+    setInputValue(clampedValue.toString());
+  };
+
+  const handleChange = (value: string) => {
+    setInputValue(value);
+    const parsed = parseFloat(value);
+    if (!isNaN(parsed)) {
+      const clampedValue = Math.max(1, Math.min(parsed, 100));
       onDurationChange(slide.id, clampedValue.toString());
-      setInputValue(clampedValue.toString());
     }
   };
 
@@ -58,7 +76,7 @@ export const DraggableTimelineItem: React.FC<DraggableTimelineItemProps> = ({
     height: `${trackHeight * 0.8}px`,
     transform: CSS.Translate.toString(transform),
     transition: isDragging ? 'none' : 'top 0.25s ease, left 0.25s ease',
-    zIndex: isDragging ? 100 : (isSelected ? 50 : 10 + slide.track),
+    zIndex: isDragging ? 100 : 10 + slide.track,
     display: 'flex',
     alignItems: 'center',
     padding: '0.5rem',
@@ -68,22 +86,32 @@ export const DraggableTimelineItem: React.FC<DraggableTimelineItemProps> = ({
     <div
       ref={setNodeRef}
       style={style}
-      className={`timeline-slide ${isSelected ? 'selected' : ''}`}
+      className={`timeline-slide text-timeline-slide ${isSelected ? 'selected' : ''}`}
       onClick={(e) => {
         e.stopPropagation();
-        onSelect(slide.id, { shift: e.shiftKey, ctrl: e.metaKey || e.ctrlKey });
+        onSelect(slide.id);
       }}
     >
-      <div 
-        {...attributes} 
-        {...listeners} 
-        className="slide-thumbnail"
+      <div
+        {...attributes}
+        {...listeners}
+        className="slide-thumbnail text-thumbnail"
         style={{ cursor: 'grab', height: '100%', touchAction: 'none' }}
       >
-        <img src={slide.image.url} alt="" style={{ pointerEvents: 'none' }} />
+        T
       </div>
       <div className="slide-info">
-        <span className="slide-name">{slide.image.name}</span>
+        {isSelected ? (
+          <input
+            type="text"
+            value={slide.text}
+            className="slide-text-input"
+            onChange={(e) => onTextChange(slide.id, e.target.value)}
+            onClick={(e) => e.stopPropagation()}
+          />
+        ) : (
+          <span className="slide-name">{shortenText(slide.text)}</span>
+        )}
         <input
           type="number"
           value={inputValue}
@@ -91,9 +119,9 @@ export const DraggableTimelineItem: React.FC<DraggableTimelineItemProps> = ({
           step="0.1"
           max="100"
           style={{ maxWidth: '100px' }}
-          onChange={(e) => setInputValue(e.target.value)}
+          onChange={(e) => handleChange(e.target.value)}
           onBlur={handleBlur}
-          onClick={(e) => e.stopPropagation()} // Prevent selection change on input click
+          onClick={(e) => e.stopPropagation()}
           onKeyDown={(e) => {
             if (e.key === 'Enter') {
               (e.target as HTMLInputElement).blur();
